@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Phase 1 data collection (sessions contain cookies — do not commit)
+phase1_data_collection/sessions/
+phase1_data_collection/sessions/**/*.txt
+phase1_data_collection/sessions/**/*.json
