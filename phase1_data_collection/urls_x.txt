@@ -1,2 +1,2 @@
 # X (Twitter) post URLs — one per line
-# https://x.com/username/status/1234567890123456789
+

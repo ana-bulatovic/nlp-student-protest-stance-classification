@@ -1,2 +1,1 @@
 # Facebook post URLs — one per line
-# https://www.facebook.com/PageName/posts/1234567890123456
