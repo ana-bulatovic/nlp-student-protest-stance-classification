@@ -1,1 +1,2 @@
 -r phase1_data_collection/requirements.txt
+-r phase3_model_training/requirements.txt
