@@ -1,0 +1,31 @@
+{
+  "platform": "x",
+  "post_id": "2039372922440098275",
+  "post_url": "https://x.com/i/status/2039372922440098275",
+  "exported_at": "2026-07-12T18:35:47.448814+00:00",
+  "comment_count": 2,
+  "comments": [
+    {
+      "id": "2039377301503103337",
+      "source": "x",
+      "post_url": "https://x.com/i/status/2039372922440098275",
+      "post_id": "2039372922440098275",
+      "text": "@InformerNovine Kad te Ruško uzjaši... uhhh",
+      "author": "jovicajoja",
+      "created_at": "2026-04-01T16:20:13+00:00",
+      "is_reply": true,
+      "parent_comment_id": "2039372922440098275"
+    },
+    {
+      "id": "2039737667642929513",
+      "source": "x",
+      "post_url": "https://x.com/i/status/2039372922440098275",
+      "post_id": "2039372922440098275",
+      "text": "@InformerNovine Bravo...tako i treba...",
+      "author": "Mihajlo92272300",
+      "created_at": "2026-04-02T16:12:11+00:00",
+      "is_reply": true,
+      "parent_comment_id": "2039372922440098275"
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "platform": "x",
+  "post_id": "1910230036625449459",
+  "post_url": "https://x.com/i/status/1910230036625449459",
+  "exported_at": "2026-07-14T06:59:38.914947+00:00",
+  "comment_count": 6,
+  "comments": [
+    {
+      "id": "1910234347749126524",
+      "source": "x",
+      "post_url": "https://x.com/i/status/1910230036625449459",
+      "post_id": "1910230036625449459",
+      "text": "@OnlineDanas Radikalski šljam u ofanzivi.",
+      "author": "_clapper_",
+      "created_at": "2025-04-10T07:32:13+00:00",
+      "is_reply": true,
+      "parent_comment_id": "1910230036625449459"
+    },
+    {
+      "id": "1910247472456216712",
+      "source": "x",
+      "post_url": "https://x.com/i/status/1910230036625449459",
+      "post_id": "1910230036625449459",
+      "text": "@OnlineDanas Pumpaj❗",
+      "author": "ViaSilA2",
+      "created_at": "2025-04-10T08:24:22+00:00",
+      "is_reply": true,
+      "parent_comment_id": "1910230036625449459"
+    },
+    {
+      "id": "1910239314232947050",
+      "source": "x",
+      "post_url": "https://x.com/i/status/1910230036625449459",
+      "post_id": "1910230036625449459",
+      "text": "@OnlineDanas Rasteruj policijo rulju bolesnu",
+      "author": "Niko1358354",
+      "created_at": "2025-04-10T07:51:57+00:00",
+      "is_reply": true,
+      "parent_comment_id": "1910230036625449459"
+    },
+    {
+      "id": "1910271112539168858",
+      "source": "x",
+      "post_url": "https://x.com/i/status/1910230036625449459",
+      "post_id": "1910230036625449459",
+      "text": "@OnlineDanas U pornicima uvek je napeto sa medicinarima i stavovi su uvek tvrdi",
+      "author": "imeiprezime70",
+      "created_at": "2025-04-10T09:58:19+00:00",
+      "is_reply": true,
+      "parent_comment_id": "1910230036625449459"
+    },
+    {
+      "id": "1910240740401111411",
+      "source": "x",
+      "post_url": "https://x.com/i/status/1910230036625449459",
+      "post_id": "1910230036625449459",
+      "text": "@OnlineDanas https://t.co/VExlWJUgCs",
+      "author": "HVeljic",
+      "created_at": "2025-04-10T07:57:37+00:00",
+      "is_reply": true,
+      "parent_comment_id": "1910230036625449459"
+    },
+    {
+      "id": "1910309776048730388",
+      "source": "x",
+      "post_url": "https://x.com/i/status/1910230036625449459",
+      "post_id": "1910230036625449459",
+      "text": "@OnlineDanas https://t.co/0t8pxBEDOm",
+      "author": "JankovicVinko",
+      "created_at": "2025-04-10T12:31:57+00:00",
+      "is_reply": true,
+      "parent_comment_id": "1910230036625449459"
+    }
+  ]
+}

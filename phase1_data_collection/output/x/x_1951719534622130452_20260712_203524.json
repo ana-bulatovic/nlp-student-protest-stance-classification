@@ -1,0 +1,53 @@
+{
+  "platform": "x",
+  "post_id": "1951719534622130452",
+  "post_url": "https://x.com/i/status/1951719534622130452",
+  "exported_at": "2026-07-12T18:35:24.786325+00:00",
+  "comment_count": 4,
+  "comments": [
+    {
+      "id": "1951732912275247365",
+      "source": "x",
+      "post_url": "https://x.com/i/status/1951719534622130452",
+      "post_id": "1951719534622130452",
+      "text": "@InformerNovine Zgubidani se opet igraju, ničija nije do zore.",
+      "author": "SaraTot75",
+      "created_at": "2025-08-02T19:52:42+00:00",
+      "is_reply": true,
+      "parent_comment_id": "1951719534622130452"
+    },
+    {
+      "id": "1951720172064264657",
+      "source": "x",
+      "post_url": "https://x.com/i/status/1951719534622130452",
+      "post_id": "1951719534622130452",
+      "text": "@InformerNovine Nista strasno.jrm ga https://t.co/kEHt1RviWl napad na novinare ktv-a 12.04.jos nisu uhapsili napadace.klasika",
+      "author": "miroslavlj90416",
+      "created_at": "2025-08-02T19:02:04+00:00",
+      "is_reply": true,
+      "parent_comment_id": "1951719534622130452"
+    },
+    {
+      "id": "1951726672321167492",
+      "source": "x",
+      "post_url": "https://x.com/i/status/1951719534622130452",
+      "post_id": "1951719534622130452",
+      "text": "@InformerNovine Bravo za live program. Jebete Ejuropejce u pokusaju live programom! Bravo!!!!!!",
+      "author": "MigoGolijanin",
+      "created_at": "2025-08-02T19:27:54+00:00",
+      "is_reply": true,
+      "parent_comment_id": "1951719534622130452"
+    },
+    {
+      "id": "1951727622330749235",
+      "source": "x",
+      "post_url": "https://x.com/i/status/1951719534622130452",
+      "post_id": "1951719534622130452",
+      "text": "@InformerNovine Policijo hapsi bagru koji po ko zna koji put napadaju ekipu informera i na robiju odmah",
+      "author": "imam_sva_prava",
+      "created_at": "2025-08-02T19:31:41+00:00",
+      "is_reply": true,
+      "parent_comment_id": "1951719534622130452"
+    }
+  ]
+}
