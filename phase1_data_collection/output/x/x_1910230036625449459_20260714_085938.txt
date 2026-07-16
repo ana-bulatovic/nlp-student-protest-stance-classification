@@ -1,0 +1,7 @@
+id|source|url|text|author|created_at|is_reply|parent_id
+1910234347749126524|x|https://x.com/i/status/1910230036625449459|@OnlineDanas Radikalski šljam u ofanzivi.|_clapper_|2025-04-10T07:32:13+00:00|1|1910230036625449459
+1910247472456216712|x|https://x.com/i/status/1910230036625449459|@OnlineDanas Pumpaj❗|ViaSilA2|2025-04-10T08:24:22+00:00|1|1910230036625449459
+1910239314232947050|x|https://x.com/i/status/1910230036625449459|@OnlineDanas Rasteruj policijo rulju bolesnu|Niko1358354|2025-04-10T07:51:57+00:00|1|1910230036625449459
+1910271112539168858|x|https://x.com/i/status/1910230036625449459|@OnlineDanas U pornicima uvek je napeto sa medicinarima i stavovi su uvek tvrdi|imeiprezime70|2025-04-10T09:58:19+00:00|1|1910230036625449459
+1910240740401111411|x|https://x.com/i/status/1910230036625449459|@OnlineDanas https://t.co/VExlWJUgCs|HVeljic|2025-04-10T07:57:37+00:00|1|1910230036625449459
+1910309776048730388|x|https://x.com/i/status/1910230036625449459|@OnlineDanas https://t.co/0t8pxBEDOm|JankovicVinko|2025-04-10T12:31:57+00:00|1|1910230036625449459

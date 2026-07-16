@@ -1,0 +1,5 @@
+id|source|url|text|author|created_at|is_reply|parent_id
+1951732912275247365|x|https://x.com/i/status/1951719534622130452|@InformerNovine Zgubidani se opet igraju, ničija nije do zore.|SaraTot75|2025-08-02T19:52:42+00:00|1|1951719534622130452
+1951720172064264657|x|https://x.com/i/status/1951719534622130452|@InformerNovine Nista strasno.jrm ga https://t.co/kEHt1RviWl napad na novinare ktv-a 12.04.jos nisu uhapsili napadace.klasika|miroslavlj90416|2025-08-02T19:02:04+00:00|1|1951719534622130452
+1951726672321167492|x|https://x.com/i/status/1951719534622130452|@InformerNovine Bravo za live program. Jebete Ejuropejce u pokusaju live programom! Bravo!!!!!!|MigoGolijanin|2025-08-02T19:27:54+00:00|1|1951719534622130452
+1951727622330749235|x|https://x.com/i/status/1951719534622130452|@InformerNovine Policijo hapsi bagru koji po ko zna koji put napadaju ekipu informera i na robiju odmah|imam_sva_prava|2025-08-02T19:31:41+00:00|1|1951719534622130452

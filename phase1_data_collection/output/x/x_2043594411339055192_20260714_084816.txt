@@ -1,0 +1,2 @@
+id|source|url|text|author|created_at|is_reply|parent_id
+2043701807747138021|x|https://x.com/i/status/2043594411339055192|@InformerNovine Hvala što gledate N1 I Novu S❤|nagyistvannadj|2026-04-13T14:44:15+00:00|1|2043594411339055192

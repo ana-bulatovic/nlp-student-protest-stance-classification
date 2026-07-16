@@ -1,0 +1,64 @@
+{
+  "platform": "x",
+  "post_id": "2058303385606959362",
+  "post_url": "https://x.com/i/status/2058303385606959362",
+  "exported_at": "2026-07-12T18:34:55.761057+00:00",
+  "comment_count": 5,
+  "comments": [
+    {
+      "id": "2058592097393938713",
+      "source": "x",
+      "post_url": "https://x.com/i/status/2058303385606959362",
+      "post_id": "2058303385606959362",
+      "text": "@kalmantibs @Bobana37252803 @KPromeni Tibi thank you 💪",
+      "author": "JelenaRadojici7",
+      "created_at": "2026-05-24T16:52:57+00:00",
+      "is_reply": true,
+      "parent_comment_id": "2058303385606959362"
+    },
+    {
+      "id": "2058557907017339218",
+      "source": "x",
+      "post_url": "https://x.com/i/status/2058303385606959362",
+      "post_id": "2058303385606959362",
+      "text": "@kalmantibs @KPromeni Here is the best estimate of the number of people:\n\nhttps://t.co/y1D9TrYv5x",
+      "author": "jeremy_87110",
+      "created_at": "2026-05-24T14:37:05+00:00",
+      "is_reply": true,
+      "parent_comment_id": "2058303385606959362"
+    },
+    {
+      "id": "2058552313883619330",
+      "source": "x",
+      "post_url": "https://x.com/i/status/2058303385606959362",
+      "post_id": "2058303385606959362",
+      "text": "@kalmantibs @KPromeni https://t.co/2DoIqPvgzt",
+      "author": "krstici021",
+      "created_at": "2026-05-24T14:14:52+00:00",
+      "is_reply": true,
+      "parent_comment_id": "2058303385606959362"
+    },
+    {
+      "id": "2058510337230446685",
+      "source": "x",
+      "post_url": "https://x.com/i/status/2058303385606959362",
+      "post_id": "2058303385606959362",
+      "text": "@kalmantibs @KPromeni 🙏🇷🇸",
+      "author": "slobodaserbia",
+      "created_at": "2026-05-24T11:28:04+00:00",
+      "is_reply": true,
+      "parent_comment_id": "2058303385606959362"
+    },
+    {
+      "id": "2058519403629568122",
+      "source": "x",
+      "post_url": "https://x.com/i/status/2058303385606959362",
+      "post_id": "2058303385606959362",
+      "text": "@kalmantibs @KPromeni vucic dictator!!!",
+      "author": "RislavBo",
+      "created_at": "2026-05-24T12:04:05+00:00",
+      "is_reply": true,
+      "parent_comment_id": "2058303385606959362"
+    }
+  ]
+}
