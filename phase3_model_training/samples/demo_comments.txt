@@ -1,0 +1,21 @@
+# Demo komentari za inferencu (~15 primera: kratki + duzi)
+# Format: jedan komentar po liniji (linije koje pocinju sa # se ignorisu)
+
+Pumpaj!
+Ziveo Vucic!
+Ne znam sta da mislim.
+Bravo za studente!
+Blokade su lose.
+Lepa slika.
+
+Ziveo Aleksandar Vucic, jedini koji radi za Srbiju i narod!
+Stop blokadama, hocemo normalan zivot i da djeca idu u skole.
+Ovi studenti su navuceni, ne znaju sta rade, mrs na predavanja.
+
+Sistematsko unistavanje privrede i obrazovanja, dosta vise ove vlasti.
+Dokle ce vise da se sprda sa narodom ovaj rezim i njihovi botovi?
+Studenti su jedini koji imaju hrabrosti da stanu na put korupciji i lopovluku.
+
+Gde mogu da pogledam celu emisiju od juce navece?
+Bila sam tamo, atmosfera je bila cudna, ne znam sta da mislim o svemu.
+Koja je svrha blokiranja vise dana zaredom kad obicni ljudi kasne na posao i gube sate, a opet razumem da studenti zele da se cuje njihov glas na neki drugi nacin.
