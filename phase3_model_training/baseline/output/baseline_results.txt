@@ -1,0 +1,701 @@
+### LR | TF | lc=da | norm=none
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3136    0.2606    0.2846       142
+     ZA-VLAST     0.6759    0.6042    0.6381       283
+PROTIV-VLASTI     0.5350    0.6400    0.5828       275
+
+     accuracy                         0.5486       700
+    macro avg     0.5081    0.5016    0.5018       700
+ weighted avg     0.5470    0.5486    0.5446       700
+
+
+### LR | TF | lc=da | norm=stem
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3248    0.2676    0.2934       142
+     ZA-VLAST     0.7333    0.6608    0.6952       283
+PROTIV-VLASTI     0.5640    0.6727    0.6136       275
+
+     accuracy                         0.5857       700
+    macro avg     0.5407    0.5337    0.5341       700
+ weighted avg     0.5839    0.5857    0.5816       700
+
+
+### LR | TF | lc=da | norm=lemma
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3136    0.2606    0.2846       142
+     ZA-VLAST     0.6759    0.6042    0.6381       283
+PROTIV-VLASTI     0.5350    0.6400    0.5828       275
+
+     accuracy                         0.5486       700
+    macro avg     0.5081    0.5016    0.5018       700
+ weighted avg     0.5470    0.5486    0.5446       700
+
+
+### LR | TF | lc=ne | norm=none
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.2989    0.1831    0.2271       142
+     ZA-VLAST     0.6736    0.5760    0.6210       283
+PROTIV-VLASTI     0.5310    0.7164    0.6099       275
+
+     accuracy                         0.5514       700
+    macro avg     0.5011    0.4918    0.4860       700
+ weighted avg     0.5415    0.5514    0.5367       700
+
+
+### LR | TF | lc=ne | norm=stem
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3248    0.2676    0.2934       142
+     ZA-VLAST     0.7333    0.6608    0.6952       283
+PROTIV-VLASTI     0.5640    0.6727    0.6136       275
+
+     accuracy                         0.5857       700
+    macro avg     0.5407    0.5337    0.5341       700
+ weighted avg     0.5839    0.5857    0.5816       700
+
+
+### LR | TF | lc=ne | norm=lemma
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3136    0.2606    0.2846       142
+     ZA-VLAST     0.6759    0.6042    0.6381       283
+PROTIV-VLASTI     0.5350    0.6400    0.5828       275
+
+     accuracy                         0.5486       700
+    macro avg     0.5081    0.5016    0.5018       700
+ weighted avg     0.5470    0.5486    0.5446       700
+
+
+### LR | IDF | lc=da | norm=none
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3150    0.2817    0.2974       142
+     ZA-VLAST     0.6960    0.6148    0.6529       283
+PROTIV-VLASTI     0.5542    0.6509    0.5987       275
+
+     accuracy                         0.5614       700
+    macro avg     0.5217    0.5158    0.5163       700
+ weighted avg     0.5630    0.5614    0.5595       700
+
+
+### LR | IDF | lc=da | norm=stem
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3130    0.2887    0.3004       142
+     ZA-VLAST     0.7016    0.6396    0.6691       283
+PROTIV-VLASTI     0.5531    0.6255    0.5870       275
+
+     accuracy                         0.5629       700
+    macro avg     0.5225    0.5179    0.5188       700
+ weighted avg     0.5644    0.5629    0.5621       700
+
+
+### LR | IDF | lc=da | norm=lemma
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3150    0.2817    0.2974       142
+     ZA-VLAST     0.6960    0.6148    0.6529       283
+PROTIV-VLASTI     0.5542    0.6509    0.5987       275
+
+     accuracy                         0.5614       700
+    macro avg     0.5217    0.5158    0.5163       700
+ weighted avg     0.5630    0.5614    0.5595       700
+
+
+### LR | IDF | lc=ne | norm=none
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3360    0.2958    0.3146       142
+     ZA-VLAST     0.6875    0.5830    0.6310       283
+PROTIV-VLASTI     0.5552    0.6764    0.6098       275
+
+     accuracy                         0.5614       700
+    macro avg     0.5262    0.5184    0.5185       700
+ weighted avg     0.5642    0.5614    0.5585       700
+
+
+### LR | IDF | lc=ne | norm=stem
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3130    0.2887    0.3004       142
+     ZA-VLAST     0.7016    0.6396    0.6691       283
+PROTIV-VLASTI     0.5531    0.6255    0.5870       275
+
+     accuracy                         0.5629       700
+    macro avg     0.5225    0.5179    0.5188       700
+ weighted avg     0.5644    0.5629    0.5621       700
+
+
+### LR | IDF | lc=ne | norm=lemma
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3150    0.2817    0.2974       142
+     ZA-VLAST     0.6960    0.6148    0.6529       283
+PROTIV-VLASTI     0.5542    0.6509    0.5987       275
+
+     accuracy                         0.5614       700
+    macro avg     0.5217    0.5158    0.5163       700
+ weighted avg     0.5630    0.5614    0.5595       700
+
+
+### LR | TFIDF | lc=da | norm=none
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3365    0.2465    0.2846       142
+     ZA-VLAST     0.6282    0.6926    0.6588       283
+PROTIV-VLASTI     0.5845    0.6036    0.5939       275
+
+     accuracy                         0.5671       700
+    macro avg     0.5164    0.5142    0.5124       700
+ weighted avg     0.5519    0.5671    0.5574       700
+
+
+### LR | TFIDF | lc=da | norm=stem
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.2991    0.2254    0.2570       142
+     ZA-VLAST     0.6498    0.7279    0.6867       283
+PROTIV-VLASTI     0.5870    0.5891    0.5880       275
+
+     accuracy                         0.5714       700
+    macro avg     0.5120    0.5141    0.5106       700
+ weighted avg     0.5540    0.5714    0.5608       700
+
+
+### LR | TFIDF | lc=da | norm=lemma
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3365    0.2465    0.2846       142
+     ZA-VLAST     0.6282    0.6926    0.6588       283
+PROTIV-VLASTI     0.5845    0.6036    0.5939       275
+
+     accuracy                         0.5671       700
+    macro avg     0.5164    0.5142    0.5124       700
+ weighted avg     0.5519    0.5671    0.5574       700
+
+
+### LR | TFIDF | lc=ne | norm=none
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3579    0.2394    0.2869       142
+     ZA-VLAST     0.6351    0.6643    0.6494       283
+PROTIV-VLASTI     0.5696    0.6400    0.6027       275
+
+     accuracy                         0.5686       700
+    macro avg     0.5209    0.5146    0.5130       700
+ weighted avg     0.5531    0.5686    0.5575       700
+
+
+### LR | TFIDF | lc=ne | norm=stem
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.2991    0.2254    0.2570       142
+     ZA-VLAST     0.6498    0.7279    0.6867       283
+PROTIV-VLASTI     0.5870    0.5891    0.5880       275
+
+     accuracy                         0.5714       700
+    macro avg     0.5120    0.5141    0.5106       700
+ weighted avg     0.5540    0.5714    0.5608       700
+
+
+### LR | TFIDF | lc=ne | norm=lemma
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3365    0.2465    0.2846       142
+     ZA-VLAST     0.6282    0.6926    0.6588       283
+PROTIV-VLASTI     0.5845    0.6036    0.5939       275
+
+     accuracy                         0.5671       700
+    macro avg     0.5164    0.5142    0.5124       700
+ weighted avg     0.5519    0.5671    0.5574       700
+
+
+### SVM | TF | lc=da | norm=none
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.2642    0.1972    0.2258       142
+     ZA-VLAST     0.6667    0.5795    0.6200       283
+PROTIV-VLASTI     0.5259    0.6655    0.5875       275
+
+     accuracy                         0.5357       700
+    macro avg     0.4856    0.4807    0.4778       700
+ weighted avg     0.5297    0.5357    0.5273       700
+
+
+### SVM | TF | lc=da | norm=stem
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3444    0.2183    0.2672       142
+     ZA-VLAST     0.7326    0.6678    0.6987       283
+PROTIV-VLASTI     0.5511    0.7055    0.6188       275
+
+     accuracy                         0.5914       700
+    macro avg     0.5427    0.5305    0.5283       700
+ weighted avg     0.5826    0.5914    0.5798       700
+
+
+### SVM | TF | lc=da | norm=lemma
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.2642    0.1972    0.2258       142
+     ZA-VLAST     0.6667    0.5795    0.6200       283
+PROTIV-VLASTI     0.5259    0.6655    0.5875       275
+
+     accuracy                         0.5357       700
+    macro avg     0.4856    0.4807    0.4778       700
+ weighted avg     0.5297    0.5357    0.5273       700
+
+
+### SVM | TF | lc=ne | norm=none
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.2979    0.1972    0.2373       142
+     ZA-VLAST     0.6667    0.5583    0.6077       283
+PROTIV-VLASTI     0.5230    0.7018    0.5994       275
+
+     accuracy                         0.5414       700
+    macro avg     0.4959    0.4858    0.4815       700
+ weighted avg     0.5354    0.5414    0.5293       700
+
+
+### SVM | TF | lc=ne | norm=stem
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3444    0.2183    0.2672       142
+     ZA-VLAST     0.7326    0.6678    0.6987       283
+PROTIV-VLASTI     0.5511    0.7055    0.6188       275
+
+     accuracy                         0.5914       700
+    macro avg     0.5427    0.5305    0.5283       700
+ weighted avg     0.5826    0.5914    0.5798       700
+
+
+### SVM | TF | lc=ne | norm=lemma
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.2642    0.1972    0.2258       142
+     ZA-VLAST     0.6667    0.5795    0.6200       283
+PROTIV-VLASTI     0.5259    0.6655    0.5875       275
+
+     accuracy                         0.5357       700
+    macro avg     0.4856    0.4807    0.4778       700
+ weighted avg     0.5297    0.5357    0.5273       700
+
+
+### SVM | IDF | lc=da | norm=none
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.2704    0.3028    0.2857       142
+     ZA-VLAST     0.6625    0.5618    0.6080       283
+PROTIV-VLASTI     0.5449    0.5964    0.5694       275
+
+     accuracy                         0.5229       700
+    macro avg     0.4926    0.4870    0.4877       700
+ weighted avg     0.5367    0.5229    0.5275       700
+
+
+### SVM | IDF | lc=da | norm=stem
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.2893    0.3239    0.3056       142
+     ZA-VLAST     0.6707    0.5901    0.6278       283
+PROTIV-VLASTI     0.5479    0.5818    0.5644       275
+
+     accuracy                         0.5329       700
+    macro avg     0.5026    0.4986    0.4993       700
+ weighted avg     0.5451    0.5329    0.5375       700
+
+
+### SVM | IDF | lc=da | norm=lemma
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.2704    0.3028    0.2857       142
+     ZA-VLAST     0.6625    0.5618    0.6080       283
+PROTIV-VLASTI     0.5449    0.5964    0.5694       275
+
+     accuracy                         0.5229       700
+    macro avg     0.4926    0.4870    0.4877       700
+ weighted avg     0.5367    0.5229    0.5275       700
+
+
+### SVM | IDF | lc=ne | norm=none
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3056    0.3099    0.3077       142
+     ZA-VLAST     0.6507    0.5265    0.5820       283
+PROTIV-VLASTI     0.5168    0.6145    0.5615       275
+
+     accuracy                         0.5171       700
+    macro avg     0.4910    0.4836    0.4837       700
+ weighted avg     0.5281    0.5171    0.5183       700
+
+
+### SVM | IDF | lc=ne | norm=stem
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.2893    0.3239    0.3056       142
+     ZA-VLAST     0.6707    0.5901    0.6278       283
+PROTIV-VLASTI     0.5479    0.5818    0.5644       275
+
+     accuracy                         0.5329       700
+    macro avg     0.5026    0.4986    0.4993       700
+ weighted avg     0.5451    0.5329    0.5375       700
+
+
+### SVM | IDF | lc=ne | norm=lemma
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.2704    0.3028    0.2857       142
+     ZA-VLAST     0.6625    0.5618    0.6080       283
+PROTIV-VLASTI     0.5449    0.5964    0.5694       275
+
+     accuracy                         0.5229       700
+    macro avg     0.4926    0.4870    0.4877       700
+ weighted avg     0.5367    0.5229    0.5275       700
+
+
+### SVM | TFIDF | lc=da | norm=none
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.2966    0.2465    0.2692       142
+     ZA-VLAST     0.6221    0.6749    0.6475       283
+PROTIV-VLASTI     0.5709    0.5709    0.5709       275
+
+     accuracy                         0.5471       700
+    macro avg     0.4966    0.4974    0.4959       700
+ weighted avg     0.5360    0.5471    0.5407       700
+
+
+### SVM | TFIDF | lc=da | norm=stem
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3009    0.2394    0.2667       142
+     ZA-VLAST     0.6390    0.7067    0.6711       283
+PROTIV-VLASTI     0.5730    0.5709    0.5719       275
+
+     accuracy                         0.5586       700
+    macro avg     0.5043    0.5057    0.5033       700
+ weighted avg     0.5445    0.5586    0.5501       700
+
+
+### SVM | TFIDF | lc=da | norm=lemma
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.2966    0.2465    0.2692       142
+     ZA-VLAST     0.6221    0.6749    0.6475       283
+PROTIV-VLASTI     0.5709    0.5709    0.5709       275
+
+     accuracy                         0.5471       700
+    macro avg     0.4966    0.4974    0.4959       700
+ weighted avg     0.5360    0.5471    0.5407       700
+
+
+### SVM | TFIDF | lc=ne | norm=none
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3426    0.2606    0.2960       142
+     ZA-VLAST     0.6466    0.6466    0.6466       283
+PROTIV-VLASTI     0.5696    0.6400    0.6027       275
+
+     accuracy                         0.5657       700
+    macro avg     0.5196    0.5157    0.5151       700
+ weighted avg     0.5547    0.5657    0.5583       700
+
+
+### SVM | TFIDF | lc=ne | norm=stem
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3009    0.2394    0.2667       142
+     ZA-VLAST     0.6390    0.7067    0.6711       283
+PROTIV-VLASTI     0.5730    0.5709    0.5719       275
+
+     accuracy                         0.5586       700
+    macro avg     0.5043    0.5057    0.5033       700
+ weighted avg     0.5445    0.5586    0.5501       700
+
+
+### SVM | TFIDF | lc=ne | norm=lemma
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.2966    0.2465    0.2692       142
+     ZA-VLAST     0.6221    0.6749    0.6475       283
+PROTIV-VLASTI     0.5709    0.5709    0.5709       275
+
+     accuracy                         0.5471       700
+    macro avg     0.4966    0.4974    0.4959       700
+ weighted avg     0.5360    0.5471    0.5407       700
+
+
+### NB | TF | lc=da | norm=none
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3670    0.2817    0.3187       142
+     ZA-VLAST     0.6239    0.7208    0.6689       283
+PROTIV-VLASTI     0.5909    0.5673    0.5788       275
+
+     accuracy                         0.5714       700
+    macro avg     0.5272    0.5233    0.5221       700
+ weighted avg     0.5588    0.5714    0.5625       700
+
+
+### NB | TF | lc=da | norm=stem
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3495    0.2535    0.2939       142
+     ZA-VLAST     0.6472    0.7456    0.6929       283
+PROTIV-VLASTI     0.6089    0.6000    0.6044       275
+
+     accuracy                         0.5886       700
+    macro avg     0.5352    0.5330    0.5304       700
+ weighted avg     0.5718    0.5886    0.5772       700
+
+
+### NB | TF | lc=da | norm=lemma
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3670    0.2817    0.3187       142
+     ZA-VLAST     0.6239    0.7208    0.6689       283
+PROTIV-VLASTI     0.5909    0.5673    0.5788       275
+
+     accuracy                         0.5714       700
+    macro avg     0.5272    0.5233    0.5221       700
+ weighted avg     0.5588    0.5714    0.5625       700
+
+
+### NB | TF | lc=ne | norm=none
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3750    0.2746    0.3171       142
+     ZA-VLAST     0.5886    0.6926    0.6364       283
+PROTIV-VLASTI     0.5513    0.5273    0.5390       275
+
+     accuracy                         0.5429       700
+    macro avg     0.5050    0.4982    0.4975       700
+ weighted avg     0.5306    0.5429    0.5334       700
+
+
+### NB | TF | lc=ne | norm=stem
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3495    0.2535    0.2939       142
+     ZA-VLAST     0.6472    0.7456    0.6929       283
+PROTIV-VLASTI     0.6089    0.6000    0.6044       275
+
+     accuracy                         0.5886       700
+    macro avg     0.5352    0.5330    0.5304       700
+ weighted avg     0.5718    0.5886    0.5772       700
+
+
+### NB | TF | lc=ne | norm=lemma
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3670    0.2817    0.3187       142
+     ZA-VLAST     0.6239    0.7208    0.6689       283
+PROTIV-VLASTI     0.5909    0.5673    0.5788       275
+
+     accuracy                         0.5714       700
+    macro avg     0.5272    0.5233    0.5221       700
+ weighted avg     0.5588    0.5714    0.5625       700
+
+
+### NB | IDF | lc=da | norm=none
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3472    0.3521    0.3497       142
+     ZA-VLAST     0.6286    0.6996    0.6622       283
+PROTIV-VLASTI     0.5892    0.5164    0.5504       275
+
+     accuracy                         0.5571       700
+    macro avg     0.5217    0.5227    0.5207       700
+ weighted avg     0.5560    0.5571    0.5549       700
+
+
+### NB | IDF | lc=da | norm=stem
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3409    0.3169    0.3285       142
+     ZA-VLAST     0.6603    0.7350    0.6957       283
+PROTIV-VLASTI     0.6126    0.5636    0.5871       275
+
+     accuracy                         0.5829       700
+    macro avg     0.5380    0.5385    0.5371       700
+ weighted avg     0.5768    0.5829    0.5785       700
+
+
+### NB | IDF | lc=da | norm=lemma
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3472    0.3521    0.3497       142
+     ZA-VLAST     0.6286    0.6996    0.6622       283
+PROTIV-VLASTI     0.5892    0.5164    0.5504       275
+
+     accuracy                         0.5571       700
+    macro avg     0.5217    0.5227    0.5207       700
+ weighted avg     0.5560    0.5571    0.5549       700
+
+
+### NB | IDF | lc=ne | norm=none
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3750    0.3592    0.3669       142
+     ZA-VLAST     0.6006    0.6855    0.6403       283
+PROTIV-VLASTI     0.5851    0.5127    0.5465       275
+
+     accuracy                         0.5514       700
+    macro avg     0.5202    0.5191    0.5179       700
+ weighted avg     0.5487    0.5514    0.5480       700
+
+
+### NB | IDF | lc=ne | norm=stem
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3409    0.3169    0.3285       142
+     ZA-VLAST     0.6603    0.7350    0.6957       283
+PROTIV-VLASTI     0.6126    0.5636    0.5871       275
+
+     accuracy                         0.5829       700
+    macro avg     0.5380    0.5385    0.5371       700
+ weighted avg     0.5768    0.5829    0.5785       700
+
+
+### NB | IDF | lc=ne | norm=lemma
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3472    0.3521    0.3497       142
+     ZA-VLAST     0.6286    0.6996    0.6622       283
+PROTIV-VLASTI     0.5892    0.5164    0.5504       275
+
+     accuracy                         0.5571       700
+    macro avg     0.5217    0.5227    0.5207       700
+ weighted avg     0.5560    0.5571    0.5549       700
+
+
+### NB | TFIDF | lc=da | norm=none
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3293    0.1901    0.2411       142
+     ZA-VLAST     0.5988    0.7279    0.6571       283
+PROTIV-VLASTI     0.5803    0.5782    0.5792       275
+
+     accuracy                         0.5600       700
+    macro avg     0.5028    0.4987    0.4925       700
+ weighted avg     0.5369    0.5600    0.5421       700
+
+
+### NB | TFIDF | lc=da | norm=stem
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3467    0.1831    0.2396       142
+     ZA-VLAST     0.6243    0.7809    0.6939       283
+PROTIV-VLASTI     0.6015    0.5927    0.5971       275
+
+     accuracy                         0.5857       700
+    macro avg     0.5241    0.5189    0.5102       700
+ weighted avg     0.5590    0.5857    0.5637       700
+
+
+### NB | TFIDF | lc=da | norm=lemma
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3293    0.1901    0.2411       142
+     ZA-VLAST     0.5988    0.7279    0.6571       283
+PROTIV-VLASTI     0.5803    0.5782    0.5792       275
+
+     accuracy                         0.5600       700
+    macro avg     0.5028    0.4987    0.4925       700
+ weighted avg     0.5369    0.5600    0.5421       700
+
+
+### NB | TFIDF | lc=ne | norm=none
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3718    0.2042    0.2636       142
+     ZA-VLAST     0.5780    0.7067    0.6359       283
+PROTIV-VLASTI     0.5580    0.5600    0.5590       275
+
+     accuracy                         0.5471       700
+    macro avg     0.5026    0.4903    0.4862       700
+ weighted avg     0.5283    0.5471    0.5302       700
+
+
+### NB | TFIDF | lc=ne | norm=stem
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3467    0.1831    0.2396       142
+     ZA-VLAST     0.6243    0.7809    0.6939       283
+PROTIV-VLASTI     0.6015    0.5927    0.5971       275
+
+     accuracy                         0.5857       700
+    macro avg     0.5241    0.5189    0.5102       700
+ weighted avg     0.5590    0.5857    0.5637       700
+
+
+### NB | TFIDF | lc=ne | norm=lemma
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.3293    0.1901    0.2411       142
+     ZA-VLAST     0.5988    0.7279    0.6571       283
+PROTIV-VLASTI     0.5803    0.5782    0.5792       275
+
+     accuracy                         0.5600       700
+    macro avg     0.5028    0.4987    0.4925       700
+ weighted avg     0.5369    0.5600    0.5421       700
+

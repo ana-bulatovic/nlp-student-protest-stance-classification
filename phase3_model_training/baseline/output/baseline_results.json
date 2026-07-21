@@ -1,0 +1,942 @@
+{
+  "data": "C:\\Users\\ANA\\Desktop\\Faks\\Master\\OPJ\\Projekat\\nlp-student-protest-stance-classification\\phase2_annotation\\annotated\\dataset_all.txt",
+  "n_samples": 700,
+  "label_counts": {
+    "NEUTRAL": 142,
+    "ZA-VLAST": 283,
+    "PROTIV-VLASTI": 275
+  },
+  "outer_folds": 10,
+  "inner_folds": 3,
+  "C_grid": [
+    0.1,
+    1.0,
+    10.0
+  ],
+  "alpha_grid": [
+    0.1,
+    0.5,
+    1.0
+  ],
+  "note": "TF/IDF/TF-IDF, lowercasing, stem i lemma su tehnike pretprocesiranja; nijedna nije podrazumevani 'default model'.",
+  "results": [
+    {
+      "model": "lr",
+      "weighting": "tf",
+      "lowercase": true,
+      "normalize": "none",
+      "best_params": {
+        "clf__C": 1.0
+      },
+      "accuracy": 0.5485714285714286,
+      "macro_f1": 0.5018188476871881,
+      "weighted_f1": 0.5446445440000348,
+      "per_class_f1": {
+        "NEUTRAL": 0.28461538461538466,
+        "ZA-VLAST": 0.6380597014925373,
+        "PROTIV-VLASTI": 0.5827814569536424
+      }
+    },
+    {
+      "model": "lr",
+      "weighting": "tf",
+      "lowercase": true,
+      "normalize": "stem",
+      "best_params": {
+        "clf__C": 1.0
+      },
+      "accuracy": 0.5857142857142857,
+      "macro_f1": 0.5340674176606041,
+      "weighted_f1": 0.5816284726184774,
+      "per_class_f1": {
+        "NEUTRAL": 0.2934362934362934,
+        "ZA-VLAST": 0.6951672862453532,
+        "PROTIV-VLASTI": 0.6135986733001657
+      }
+    },
+    {
+      "model": "lr",
+      "weighting": "tf",
+      "lowercase": true,
+      "normalize": "lemma",
+      "best_params": {
+        "clf__C": 1.0
+      },
+      "accuracy": 0.5485714285714286,
+      "macro_f1": 0.5018188476871881,
+      "weighted_f1": 0.5446445440000348,
+      "per_class_f1": {
+        "NEUTRAL": 0.28461538461538466,
+        "ZA-VLAST": 0.6380597014925373,
+        "PROTIV-VLASTI": 0.5827814569536424
+      }
+    },
+    {
+      "model": "lr",
+      "weighting": "tf",
+      "lowercase": false,
+      "normalize": "none",
+      "best_params": {
+        "clf__C": 1.0
+      },
+      "accuracy": 0.5514285714285714,
+      "macro_f1": 0.4859779125010917,
+      "weighted_f1": 0.5367121764265348,
+      "per_class_f1": {
+        "NEUTRAL": 0.22707423580786026,
+        "ZA-VLAST": 0.6209523809523809,
+        "PROTIV-VLASTI": 0.609907120743034
+      }
+    },
+    {
+      "model": "lr",
+      "weighting": "tf",
+      "lowercase": false,
+      "normalize": "stem",
+      "best_params": {
+        "clf__C": 1.0
+      },
+      "accuracy": 0.5857142857142857,
+      "macro_f1": 0.5340674176606041,
+      "weighted_f1": 0.5816284726184774,
+      "per_class_f1": {
+        "NEUTRAL": 0.2934362934362934,
+        "ZA-VLAST": 0.6951672862453532,
+        "PROTIV-VLASTI": 0.6135986733001657
+      }
+    },
+    {
+      "model": "lr",
+      "weighting": "tf",
+      "lowercase": false,
+      "normalize": "lemma",
+      "best_params": {
+        "clf__C": 1.0
+      },
+      "accuracy": 0.5485714285714286,
+      "macro_f1": 0.5018188476871881,
+      "weighted_f1": 0.5446445440000348,
+      "per_class_f1": {
+        "NEUTRAL": 0.28461538461538466,
+        "ZA-VLAST": 0.6380597014925373,
+        "PROTIV-VLASTI": 0.5827814569536424
+      }
+    },
+    {
+      "model": "lr",
+      "weighting": "idf",
+      "lowercase": true,
+      "normalize": "none",
+      "best_params": {
+        "clf__C": 1.0
+      },
+      "accuracy": 0.5614285714285714,
+      "macro_f1": 0.5163226814722673,
+      "weighted_f1": 0.559479390584619,
+      "per_class_f1": {
+        "NEUTRAL": 0.29739776951672864,
+        "ZA-VLAST": 0.6529080675422139,
+        "PROTIV-VLASTI": 0.5986622073578595
+      }
+    },
+    {
+      "model": "lr",
+      "weighting": "idf",
+      "lowercase": true,
+      "normalize": "stem",
+      "best_params": {
+        "clf__C": 0.1
+      },
+      "accuracy": 0.5628571428571428,
+      "macro_f1": 0.5188427518457233,
+      "weighted_f1": 0.5620708603308319,
+      "per_class_f1": {
+        "NEUTRAL": 0.3003663003663004,
+        "ZA-VLAST": 0.6691312384473198,
+        "PROTIV-VLASTI": 0.5870307167235496
+      }
+    },
+    {
+      "model": "lr",
+      "weighting": "idf",
+      "lowercase": true,
+      "normalize": "lemma",
+      "best_params": {
+        "clf__C": 1.0
+      },
+      "accuracy": 0.5614285714285714,
+      "macro_f1": 0.5163226814722673,
+      "weighted_f1": 0.559479390584619,
+      "per_class_f1": {
+        "NEUTRAL": 0.29739776951672864,
+        "ZA-VLAST": 0.6529080675422139,
+        "PROTIV-VLASTI": 0.5986622073578595
+      }
+    },
+    {
+      "model": "lr",
+      "weighting": "idf",
+      "lowercase": false,
+      "normalize": "none",
+      "best_params": {
+        "clf__C": 0.1
+      },
+      "accuracy": 0.5614285714285714,
+      "macro_f1": 0.5184726501834153,
+      "weighted_f1": 0.5584929155990452,
+      "per_class_f1": {
+        "NEUTRAL": 0.3146067415730337,
+        "ZA-VLAST": 0.6309751434034416,
+        "PROTIV-VLASTI": 0.6098360655737705
+      }
+    },
+    {
+      "model": "lr",
+      "weighting": "idf",
+      "lowercase": false,
+      "normalize": "stem",
+      "best_params": {
+        "clf__C": 0.1
+      },
+      "accuracy": 0.5628571428571428,
+      "macro_f1": 0.5188427518457233,
+      "weighted_f1": 0.5620708603308319,
+      "per_class_f1": {
+        "NEUTRAL": 0.3003663003663004,
+        "ZA-VLAST": 0.6691312384473198,
+        "PROTIV-VLASTI": 0.5870307167235496
+      }
+    },
+    {
+      "model": "lr",
+      "weighting": "idf",
+      "lowercase": false,
+      "normalize": "lemma",
+      "best_params": {
+        "clf__C": 1.0
+      },
+      "accuracy": 0.5614285714285714,
+      "macro_f1": 0.5163226814722673,
+      "weighted_f1": 0.559479390584619,
+      "per_class_f1": {
+        "NEUTRAL": 0.29739776951672864,
+        "ZA-VLAST": 0.6529080675422139,
+        "PROTIV-VLASTI": 0.5986622073578595
+      }
+    },
+    {
+      "model": "lr",
+      "weighting": "tfidf",
+      "lowercase": true,
+      "normalize": "none",
+      "best_params": {
+        "clf__C": 10.0
+      },
+      "accuracy": 0.5671428571428572,
+      "macro_f1": 0.5124313617123333,
+      "weighted_f1": 0.5574013331324065,
+      "per_class_f1": {
+        "NEUTRAL": 0.2845528455284553,
+        "ZA-VLAST": 0.6588235294117647,
+        "PROTIV-VLASTI": 0.59391771019678
+      }
+    },
+    {
+      "model": "lr",
+      "weighting": "tfidf",
+      "lowercase": true,
+      "normalize": "stem",
+      "best_params": {
+        "clf__C": 10.0
+      },
+      "accuracy": 0.5714285714285714,
+      "macro_f1": 0.510572185900286,
+      "weighted_f1": 0.5607580682074943,
+      "per_class_f1": {
+        "NEUTRAL": 0.2570281124497992,
+        "ZA-VLAST": 0.6866666666666666,
+        "PROTIV-VLASTI": 0.5880217785843921
+      }
+    },
+    {
+      "model": "lr",
+      "weighting": "tfidf",
+      "lowercase": true,
+      "normalize": "lemma",
+      "best_params": {
+        "clf__C": 10.0
+      },
+      "accuracy": 0.5671428571428572,
+      "macro_f1": 0.5124313617123333,
+      "weighted_f1": 0.5574013331324065,
+      "per_class_f1": {
+        "NEUTRAL": 0.2845528455284553,
+        "ZA-VLAST": 0.6588235294117647,
+        "PROTIV-VLASTI": 0.59391771019678
+      }
+    },
+    {
+      "model": "lr",
+      "weighting": "tfidf",
+      "lowercase": false,
+      "normalize": "none",
+      "best_params": {
+        "clf__C": 10.0
+      },
+      "accuracy": 0.5685714285714286,
+      "macro_f1": 0.5130183555833875,
+      "weighted_f1": 0.557535671256493,
+      "per_class_f1": {
+        "NEUTRAL": 0.2869198312236287,
+        "ZA-VLAST": 0.6493955094991365,
+        "PROTIV-VLASTI": 0.6027397260273972
+      }
+    },
+    {
+      "model": "lr",
+      "weighting": "tfidf",
+      "lowercase": false,
+      "normalize": "stem",
+      "best_params": {
+        "clf__C": 10.0
+      },
+      "accuracy": 0.5714285714285714,
+      "macro_f1": 0.510572185900286,
+      "weighted_f1": 0.5607580682074943,
+      "per_class_f1": {
+        "NEUTRAL": 0.2570281124497992,
+        "ZA-VLAST": 0.6866666666666666,
+        "PROTIV-VLASTI": 0.5880217785843921
+      }
+    },
+    {
+      "model": "lr",
+      "weighting": "tfidf",
+      "lowercase": false,
+      "normalize": "lemma",
+      "best_params": {
+        "clf__C": 10.0
+      },
+      "accuracy": 0.5671428571428572,
+      "macro_f1": 0.5124313617123333,
+      "weighted_f1": 0.5574013331324065,
+      "per_class_f1": {
+        "NEUTRAL": 0.2845528455284553,
+        "ZA-VLAST": 0.6588235294117647,
+        "PROTIV-VLASTI": 0.59391771019678
+      }
+    },
+    {
+      "model": "svm",
+      "weighting": "tf",
+      "lowercase": true,
+      "normalize": "none",
+      "best_params": {
+        "clf__C": 0.1
+      },
+      "accuracy": 0.5357142857142857,
+      "macro_f1": 0.4777747315302701,
+      "weighted_f1": 0.5272745684363195,
+      "per_class_f1": {
+        "NEUTRAL": 0.2258064516129032,
+        "ZA-VLAST": 0.6200378071833648,
+        "PROTIV-VLASTI": 0.5874799357945425
+      }
+    },
+    {
+      "model": "svm",
+      "weighting": "tf",
+      "lowercase": true,
+      "normalize": "stem",
+      "best_params": {
+        "clf__C": 0.1
+      },
+      "accuracy": 0.5914285714285714,
+      "macro_f1": 0.5282557519466717,
+      "weighted_f1": 0.5797964867232137,
+      "per_class_f1": {
+        "NEUTRAL": 0.2672413793103448,
+        "ZA-VLAST": 0.6987060998151571,
+        "PROTIV-VLASTI": 0.6188197767145135
+      }
+    },
+    {
+      "model": "svm",
+      "weighting": "tf",
+      "lowercase": true,
+      "normalize": "lemma",
+      "best_params": {
+        "clf__C": 0.1
+      },
+      "accuracy": 0.5357142857142857,
+      "macro_f1": 0.4777747315302701,
+      "weighted_f1": 0.5272745684363195,
+      "per_class_f1": {
+        "NEUTRAL": 0.2258064516129032,
+        "ZA-VLAST": 0.6200378071833648,
+        "PROTIV-VLASTI": 0.5874799357945425
+      }
+    },
+    {
+      "model": "svm",
+      "weighting": "tf",
+      "lowercase": false,
+      "normalize": "none",
+      "best_params": {
+        "clf__C": 1.0
+      },
+      "accuracy": 0.5414285714285715,
+      "macro_f1": 0.48145310842436856,
+      "weighted_f1": 0.5292871869682061,
+      "per_class_f1": {
+        "NEUTRAL": 0.23728813559322035,
+        "ZA-VLAST": 0.6076923076923078,
+        "PROTIV-VLASTI": 0.5993788819875776
+      }
+    },
+    {
+      "model": "svm",
+      "weighting": "tf",
+      "lowercase": false,
+      "normalize": "stem",
+      "best_params": {
+        "clf__C": 0.1
+      },
+      "accuracy": 0.5914285714285714,
+      "macro_f1": 0.5282557519466717,
+      "weighted_f1": 0.5797964867232137,
+      "per_class_f1": {
+        "NEUTRAL": 0.2672413793103448,
+        "ZA-VLAST": 0.6987060998151571,
+        "PROTIV-VLASTI": 0.6188197767145135
+      }
+    },
+    {
+      "model": "svm",
+      "weighting": "tf",
+      "lowercase": false,
+      "normalize": "lemma",
+      "best_params": {
+        "clf__C": 0.1
+      },
+      "accuracy": 0.5357142857142857,
+      "macro_f1": 0.4777747315302701,
+      "weighted_f1": 0.5272745684363195,
+      "per_class_f1": {
+        "NEUTRAL": 0.2258064516129032,
+        "ZA-VLAST": 0.6200378071833648,
+        "PROTIV-VLASTI": 0.5874799357945425
+      }
+    },
+    {
+      "model": "svm",
+      "weighting": "idf",
+      "lowercase": true,
+      "normalize": "none",
+      "best_params": {
+        "clf__C": 0.1
+      },
+      "accuracy": 0.5228571428571429,
+      "macro_f1": 0.4877297742976519,
+      "weighted_f1": 0.5274875836249094,
+      "per_class_f1": {
+        "NEUTRAL": 0.2857142857142857,
+        "ZA-VLAST": 0.6080305927342256,
+        "PROTIV-VLASTI": 0.5694444444444444
+      }
+    },
+    {
+      "model": "svm",
+      "weighting": "idf",
+      "lowercase": true,
+      "normalize": "stem",
+      "best_params": {
+        "clf__C": 0.1
+      },
+      "accuracy": 0.5328571428571428,
+      "macro_f1": 0.499280429036991,
+      "weighted_f1": 0.5375396393654247,
+      "per_class_f1": {
+        "NEUTRAL": 0.3056478405315615,
+        "ZA-VLAST": 0.6278195488721804,
+        "PROTIV-VLASTI": 0.564373897707231
+      }
+    },
+    {
+      "model": "svm",
+      "weighting": "idf",
+      "lowercase": true,
+      "normalize": "lemma",
+      "best_params": {
+        "clf__C": 0.1
+      },
+      "accuracy": 0.5228571428571429,
+      "macro_f1": 0.4877297742976519,
+      "weighted_f1": 0.5274875836249094,
+      "per_class_f1": {
+        "NEUTRAL": 0.2857142857142857,
+        "ZA-VLAST": 0.6080305927342256,
+        "PROTIV-VLASTI": 0.5694444444444444
+      }
+    },
+    {
+      "model": "svm",
+      "weighting": "idf",
+      "lowercase": false,
+      "normalize": "none",
+      "best_params": {
+        "clf__C": 0.1
+      },
+      "accuracy": 0.5171428571428571,
+      "macro_f1": 0.4837284505707471,
+      "weighted_f1": 0.5182987782825562,
+      "per_class_f1": {
+        "NEUTRAL": 0.3076923076923077,
+        "ZA-VLAST": 0.58203125,
+        "PROTIV-VLASTI": 0.5614617940199336
+      }
+    },
+    {
+      "model": "svm",
+      "weighting": "idf",
+      "lowercase": false,
+      "normalize": "stem",
+      "best_params": {
+        "clf__C": 0.1
+      },
+      "accuracy": 0.5328571428571428,
+      "macro_f1": 0.499280429036991,
+      "weighted_f1": 0.5375396393654247,
+      "per_class_f1": {
+        "NEUTRAL": 0.3056478405315615,
+        "ZA-VLAST": 0.6278195488721804,
+        "PROTIV-VLASTI": 0.564373897707231
+      }
+    },
+    {
+      "model": "svm",
+      "weighting": "idf",
+      "lowercase": false,
+      "normalize": "lemma",
+      "best_params": {
+        "clf__C": 0.1
+      },
+      "accuracy": 0.5228571428571429,
+      "macro_f1": 0.4877297742976519,
+      "weighted_f1": 0.5274875836249094,
+      "per_class_f1": {
+        "NEUTRAL": 0.2857142857142857,
+        "ZA-VLAST": 0.6080305927342256,
+        "PROTIV-VLASTI": 0.5694444444444444
+      }
+    },
+    {
+      "model": "svm",
+      "weighting": "tfidf",
+      "lowercase": true,
+      "normalize": "none",
+      "best_params": {
+        "clf__C": 1.0
+      },
+      "accuracy": 0.5471428571428572,
+      "macro_f1": 0.4958658290861681,
+      "weighted_f1": 0.5406589681504936,
+      "per_class_f1": {
+        "NEUTRAL": 0.2692307692307692,
+        "ZA-VLAST": 0.6474576271186441,
+        "PROTIV-VLASTI": 0.5709090909090909
+      }
+    },
+    {
+      "model": "svm",
+      "weighting": "tfidf",
+      "lowercase": true,
+      "normalize": "stem",
+      "best_params": {
+        "clf__C": 1.0
+      },
+      "accuracy": 0.5585714285714286,
+      "macro_f1": 0.5032522014808295,
+      "weighted_f1": 0.5501221815311373,
+      "per_class_f1": {
+        "NEUTRAL": 0.26666666666666666,
+        "ZA-VLAST": 0.6711409395973154,
+        "PROTIV-VLASTI": 0.5719489981785064
+      }
+    },
+    {
+      "model": "svm",
+      "weighting": "tfidf",
+      "lowercase": true,
+      "normalize": "lemma",
+      "best_params": {
+        "clf__C": 1.0
+      },
+      "accuracy": 0.5471428571428572,
+      "macro_f1": 0.4958658290861681,
+      "weighted_f1": 0.5406589681504936,
+      "per_class_f1": {
+        "NEUTRAL": 0.2692307692307692,
+        "ZA-VLAST": 0.6474576271186441,
+        "PROTIV-VLASTI": 0.5709090909090909
+      }
+    },
+    {
+      "model": "svm",
+      "weighting": "tfidf",
+      "lowercase": false,
+      "normalize": "none",
+      "best_params": {
+        "clf__C": 10.0
+      },
+      "accuracy": 0.5657142857142857,
+      "macro_f1": 0.5151276118560111,
+      "weighted_f1": 0.558264892367906,
+      "per_class_f1": {
+        "NEUTRAL": 0.296,
+        "ZA-VLAST": 0.6466431095406361,
+        "PROTIV-VLASTI": 0.6027397260273972
+      }
+    },
+    {
+      "model": "svm",
+      "weighting": "tfidf",
+      "lowercase": false,
+      "normalize": "stem",
+      "best_params": {
+        "clf__C": 1.0
+      },
+      "accuracy": 0.5585714285714286,
+      "macro_f1": 0.5032522014808295,
+      "weighted_f1": 0.5501221815311373,
+      "per_class_f1": {
+        "NEUTRAL": 0.26666666666666666,
+        "ZA-VLAST": 0.6711409395973154,
+        "PROTIV-VLASTI": 0.5719489981785064
+      }
+    },
+    {
+      "model": "svm",
+      "weighting": "tfidf",
+      "lowercase": false,
+      "normalize": "lemma",
+      "best_params": {
+        "clf__C": 1.0
+      },
+      "accuracy": 0.5471428571428572,
+      "macro_f1": 0.4958658290861681,
+      "weighted_f1": 0.5406589681504936,
+      "per_class_f1": {
+        "NEUTRAL": 0.2692307692307692,
+        "ZA-VLAST": 0.6474576271186441,
+        "PROTIV-VLASTI": 0.5709090909090909
+      }
+    },
+    {
+      "model": "nb",
+      "weighting": "tf",
+      "lowercase": true,
+      "normalize": "none",
+      "best_params": {
+        "clf__alpha": 0.1
+      },
+      "accuracy": 0.5714285714285714,
+      "macro_f1": 0.5221424267749506,
+      "weighted_f1": 0.5624684050206478,
+      "per_class_f1": {
+        "NEUTRAL": 0.3187250996015936,
+        "ZA-VLAST": 0.6688524590163935,
+        "PROTIV-VLASTI": 0.5788497217068646
+      }
+    },
+    {
+      "model": "nb",
+      "weighting": "tf",
+      "lowercase": true,
+      "normalize": "stem",
+      "best_params": {
+        "clf__alpha": 0.1
+      },
+      "accuracy": 0.5885714285714285,
+      "macro_f1": 0.5304041333597983,
+      "weighted_f1": 0.5772017281334664,
+      "per_class_f1": {
+        "NEUTRAL": 0.2938775510204082,
+        "ZA-VLAST": 0.6929392446633826,
+        "PROTIV-VLASTI": 0.6043956043956044
+      }
+    },
+    {
+      "model": "nb",
+      "weighting": "tf",
+      "lowercase": true,
+      "normalize": "lemma",
+      "best_params": {
+        "clf__alpha": 0.1
+      },
+      "accuracy": 0.5714285714285714,
+      "macro_f1": 0.5221424267749506,
+      "weighted_f1": 0.5624684050206478,
+      "per_class_f1": {
+        "NEUTRAL": 0.3187250996015936,
+        "ZA-VLAST": 0.6688524590163935,
+        "PROTIV-VLASTI": 0.5788497217068646
+      }
+    },
+    {
+      "model": "nb",
+      "weighting": "tf",
+      "lowercase": false,
+      "normalize": "none",
+      "best_params": {
+        "clf__alpha": 0.1
+      },
+      "accuracy": 0.5428571428571428,
+      "macro_f1": 0.4974900881148048,
+      "weighted_f1": 0.5333564286832942,
+      "per_class_f1": {
+        "NEUTRAL": 0.31707317073170727,
+        "ZA-VLAST": 0.6363636363636364,
+        "PROTIV-VLASTI": 0.5390334572490706
+      }
+    },
+    {
+      "model": "nb",
+      "weighting": "tf",
+      "lowercase": false,
+      "normalize": "stem",
+      "best_params": {
+        "clf__alpha": 0.1
+      },
+      "accuracy": 0.5885714285714285,
+      "macro_f1": 0.5304041333597983,
+      "weighted_f1": 0.5772017281334664,
+      "per_class_f1": {
+        "NEUTRAL": 0.2938775510204082,
+        "ZA-VLAST": 0.6929392446633826,
+        "PROTIV-VLASTI": 0.6043956043956044
+      }
+    },
+    {
+      "model": "nb",
+      "weighting": "tf",
+      "lowercase": false,
+      "normalize": "lemma",
+      "best_params": {
+        "clf__alpha": 0.1
+      },
+      "accuracy": 0.5714285714285714,
+      "macro_f1": 0.5221424267749506,
+      "weighted_f1": 0.5624684050206478,
+      "per_class_f1": {
+        "NEUTRAL": 0.3187250996015936,
+        "ZA-VLAST": 0.6688524590163935,
+        "PROTIV-VLASTI": 0.5788497217068646
+      }
+    },
+    {
+      "model": "nb",
+      "weighting": "idf",
+      "lowercase": true,
+      "normalize": "none",
+      "best_params": {
+        "clf__alpha": 0.5
+      },
+      "accuracy": 0.5571428571428572,
+      "macro_f1": 0.5207484348030355,
+      "weighted_f1": 0.5548737443884058,
+      "per_class_f1": {
+        "NEUTRAL": 0.34965034965034963,
+        "ZA-VLAST": 0.6622073578595318,
+        "PROTIV-VLASTI": 0.5503875968992249
+      }
+    },
+    {
+      "model": "nb",
+      "weighting": "idf",
+      "lowercase": true,
+      "normalize": "stem",
+      "best_params": {
+        "clf__alpha": 0.5
+      },
+      "accuracy": 0.5828571428571429,
+      "macro_f1": 0.5370801797729757,
+      "weighted_f1": 0.5785289061673543,
+      "per_class_f1": {
+        "NEUTRAL": 0.3284671532846716,
+        "ZA-VLAST": 0.6956521739130435,
+        "PROTIV-VLASTI": 0.5871212121212122
+      }
+    },
+    {
+      "model": "nb",
+      "weighting": "idf",
+      "lowercase": true,
+      "normalize": "lemma",
+      "best_params": {
+        "clf__alpha": 0.5
+      },
+      "accuracy": 0.5571428571428572,
+      "macro_f1": 0.5207484348030355,
+      "weighted_f1": 0.5548737443884058,
+      "per_class_f1": {
+        "NEUTRAL": 0.34965034965034963,
+        "ZA-VLAST": 0.6622073578595318,
+        "PROTIV-VLASTI": 0.5503875968992249
+      }
+    },
+    {
+      "model": "nb",
+      "weighting": "idf",
+      "lowercase": false,
+      "normalize": "none",
+      "best_params": {
+        "clf__alpha": 0.5
+      },
+      "accuracy": 0.5514285714285714,
+      "macro_f1": 0.5178940430432536,
+      "weighted_f1": 0.5479801951011805,
+      "per_class_f1": {
+        "NEUTRAL": 0.36690647482014394,
+        "ZA-VLAST": 0.6402640264026404,
+        "PROTIV-VLASTI": 0.5465116279069767
+      }
+    },
+    {
+      "model": "nb",
+      "weighting": "idf",
+      "lowercase": false,
+      "normalize": "stem",
+      "best_params": {
+        "clf__alpha": 0.5
+      },
+      "accuracy": 0.5828571428571429,
+      "macro_f1": 0.5370801797729757,
+      "weighted_f1": 0.5785289061673543,
+      "per_class_f1": {
+        "NEUTRAL": 0.3284671532846716,
+        "ZA-VLAST": 0.6956521739130435,
+        "PROTIV-VLASTI": 0.5871212121212122
+      }
+    },
+    {
+      "model": "nb",
+      "weighting": "idf",
+      "lowercase": false,
+      "normalize": "lemma",
+      "best_params": {
+        "clf__alpha": 0.5
+      },
+      "accuracy": 0.5571428571428572,
+      "macro_f1": 0.5207484348030355,
+      "weighted_f1": 0.5548737443884058,
+      "per_class_f1": {
+        "NEUTRAL": 0.34965034965034963,
+        "ZA-VLAST": 0.6622073578595318,
+        "PROTIV-VLASTI": 0.5503875968992249
+      }
+    },
+    {
+      "model": "nb",
+      "weighting": "tfidf",
+      "lowercase": true,
+      "normalize": "none",
+      "best_params": {
+        "clf__alpha": 0.1
+      },
+      "accuracy": 0.56,
+      "macro_f1": 0.49246789664175333,
+      "weighted_f1": 0.5421147043412234,
+      "per_class_f1": {
+        "NEUTRAL": 0.24107142857142855,
+        "ZA-VLAST": 0.657097288676236,
+        "PROTIV-VLASTI": 0.5792349726775956
+      }
+    },
+    {
+      "model": "nb",
+      "weighting": "tfidf",
+      "lowercase": true,
+      "normalize": "stem",
+      "best_params": {
+        "clf__alpha": 0.1
+      },
+      "accuracy": 0.5857142857142857,
+      "macro_f1": 0.5101928281651783,
+      "weighted_f1": 0.5636987655749999,
+      "per_class_f1": {
+        "NEUTRAL": 0.23963133640552994,
+        "ZA-VLAST": 0.6938775510204082,
+        "PROTIV-VLASTI": 0.597069597069597
+      }
+    },
+    {
+      "model": "nb",
+      "weighting": "tfidf",
+      "lowercase": true,
+      "normalize": "lemma",
+      "best_params": {
+        "clf__alpha": 0.1
+      },
+      "accuracy": 0.56,
+      "macro_f1": 0.49246789664175333,
+      "weighted_f1": 0.5421147043412234,
+      "per_class_f1": {
+        "NEUTRAL": 0.24107142857142855,
+        "ZA-VLAST": 0.657097288676236,
+        "PROTIV-VLASTI": 0.5792349726775956
+      }
+    },
+    {
+      "model": "nb",
+      "weighting": "tfidf",
+      "lowercase": false,
+      "normalize": "none",
+      "best_params": {
+        "clf__alpha": 0.1
+      },
+      "accuracy": 0.5471428571428572,
+      "macro_f1": 0.4861833591309411,
+      "weighted_f1": 0.5301786790013544,
+      "per_class_f1": {
+        "NEUTRAL": 0.26363636363636367,
+        "ZA-VLAST": 0.6359300476947536,
+        "PROTIV-VLASTI": 0.558983666061706
+      }
+    },
+    {
+      "model": "nb",
+      "weighting": "tfidf",
+      "lowercase": false,
+      "normalize": "stem",
+      "best_params": {
+        "clf__alpha": 0.1
+      },
+      "accuracy": 0.5857142857142857,
+      "macro_f1": 0.5101928281651783,
+      "weighted_f1": 0.5636987655749999,
+      "per_class_f1": {
+        "NEUTRAL": 0.23963133640552994,
+        "ZA-VLAST": 0.6938775510204082,
+        "PROTIV-VLASTI": 0.597069597069597
+      }
+    },
+    {
+      "model": "nb",
+      "weighting": "tfidf",
+      "lowercase": false,
+      "normalize": "lemma",
+      "best_params": {
+        "clf__alpha": 0.1
+      },
+      "accuracy": 0.56,
+      "macro_f1": 0.49246789664175333,
+      "weighted_f1": 0.5421147043412234,
+      "per_class_f1": {
+        "NEUTRAL": 0.24107142857142855,
+        "ZA-VLAST": 0.657097288676236,
+        "PROTIV-VLASTI": 0.5792349726775956
+      }
+    }
+  ]
+}
