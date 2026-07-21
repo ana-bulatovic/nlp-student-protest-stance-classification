@@ -1,0 +1,73 @@
+{
+  "phase1": {
+    "unique_posts": 15,
+    "comments_in_exports_max_per_post": 5007,
+    "all_texts_lines": 5353,
+    "clean_texts_lines": 4142,
+    "comments_per_post": {
+      "Daa1IfAtiXy": 15,
+      "DaavT5Itdha": 86,
+      "DaayFERuBot": 529,
+      "DacbVkIApQA": 58,
+      "Dais6d2gRyJ": 89,
+      "DampSeAgPrr": 78,
+      "DamwUQSOKZi": 238,
+      "DannSAYsHh5": 111,
+      "DanQguBgZfD": 35,
+      "DaVcGdTgKw9": 538,
+      "DaXonqsgOmz": 34,
+      "DaYSnv9AC90": 195,
+      "DJSKP8mAFud": 1574,
+      "DQFJ7-CDWHt": 1112,
+      "DUBlHK6Db4n": 315
+    }
+  },
+  "phase2": {
+    "annotated_total": 500,
+    "label_counts": {
+      "NEUTRAL": 118,
+      "ZA-VLAST": 150,
+      "PROTIV-VLASTI": 232
+    },
+    "imbalance_max_over_min": 1.97,
+    "length_stats_tokens": {
+      "NEUTRAL": {
+        "n": 118,
+        "mean": 11.813559322033898,
+        "median": 9.0,
+        "std": 9.053465627791358,
+        "p90": 24.299999999999997,
+        "max": 47
+      },
+      "ZA-VLAST": {
+        "n": 150,
+        "mean": 11.8,
+        "median": 10.0,
+        "std": 7.8680789692698605,
+        "p90": 21.099999999999994,
+        "max": 48
+      },
+      "PROTIV-VLASTI": {
+        "n": 232,
+        "mean": 10.379310344827585,
+        "median": 8.0,
+        "std": 7.993159977188462,
+        "p90": 21.0,
+        "max": 40
+      }
+    },
+    "nema_urls": 0,
+    "unique_source_urls": 15
+  },
+  "figures": [
+    "01_funnel_phase1_to_phase2.png",
+    "02_label_distribution.png",
+    "03_label_bars.png",
+    "04_length_by_label.png",
+    "05_length_boxplot.png",
+    "06_phase1_comments_per_post.png",
+    "07_annotated_by_source_stacked.png",
+    "08_top_tokens_by_label.png",
+    "09_class_share_top_sources.png"
+  ]
+}
