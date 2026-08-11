@@ -1,0 +1,41 @@
+# YouTube video URLs — one per line
+# already downloaded (batch 1) — commented out so they don't get re-fetched
+# random klipovi 15. mart
+# https://www.youtube.com/shorts/rAiL1Lf7BFs
+# https://www.youtube.com/shorts/GsXOqogj_co
+# https://www.youtube.com/shorts/sp6Ul0M2WSw
+# https://www.youtube.com/shorts/kgvhjhlVHE4
+
+# glas djavolji
+# https://www.youtube.com/shorts/oNt6i6qo3fI
+# https://www.youtube.com/shorts/QnRXZEgaHWs
+# https://www.youtube.com/shorts/BFwzxYam6Ic
+# https://www.youtube.com/shorts/Je_3j5u7NBU
+# https://www.youtube.com/shorts/yhSCF84N0wk
+
+# kurir
+# https://www.youtube.com/shorts/7686dSc-alA
+# https://www.youtube.com/shorts/Y8E7e3NEcoc
+# https://www.youtube.com/shorts/ZGXAiX8CRR8
+# https://www.youtube.com/shorts/heB9XHhlzyM #  za brisanje
+# https://www.youtube.com/shorts/uLl6lxEjghw
+
+# blokada rts
+# https://www.youtube.com/shorts/pgwHjLgVtBA
+# https://www.youtube.com/shorts/PDu79pMVRmw
+
+#drugi batch — already downloaded, commented out
+# https://www.youtube.com/shorts/AHR8e4KJSKQ
+# https://www.youtube.com/shorts/eHeGVDRfQCo
+# https://www.youtube.com/shorts/_aTeCJJH4No
+# https://www.youtube.com/shorts/_fYEig8Ym9c
+# https://www.youtube.com/shorts/2fMycdrmamw
+
+# ima preko soma komentara — batch 3, downloaded first 500
+# https://www.youtube.com/shorts/vtXToNPK9kY
+
+# batch 4 — already downloaded, commented out
+# https://www.youtube.com/shorts/M8X1MOBGeSQ
+
+# batch 5 — already downloaded, commented out
+# https://www.youtube.com/shorts/ZWOPQxws7CI
