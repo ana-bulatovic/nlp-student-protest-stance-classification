@@ -221,3 +221,10 @@ __marimo__/
 phase1_data_collection/sessions/
 phase1_data_collection/sessions/**/*.txt
 phase1_data_collection/sessions/**/*.json
+
+# Phase 3 model training — regenerable outputs, not source (encoder checkpoints
+# especially can reach 1GB+, far too large for git)
+phase3_model_training/baseline/output/
+phase3_model_training/encoder/output/
+phase3_model_training/cache_dir/
+phase3_model_training/runs/
