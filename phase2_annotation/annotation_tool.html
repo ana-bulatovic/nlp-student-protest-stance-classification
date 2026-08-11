@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Stance annotation tool</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f5f7;
+    --card-bg: #ffffff;
+    --text: #1a1a1a;
+    --muted: #6b6b6b;
+    --border: #e0e0e0;
+    --accent: #2563eb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17181c;
+      --card-bg: #24262b;
+      --text: #ececec;
+      --muted: #9a9a9a;
+      --border: #35373d;
+      --accent: #5b8def;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 24px 16px 60px;
+  }
+  h1 { font-size: 18px; font-weight: 600; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .panel {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    width: 100%;
+    max-width: 720px;
+  }
+  #loader { text-align: center; }
+  #loader input { margin-top: 12px; }
+  #workspace { display: none; }
+  .progress-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .progress-bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border);
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.15s;
+  }
+  .comment-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 28px 24px;
+    min-height: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .comment-text {
+    font-size: 22px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    text-align: left;
+    width: 100%;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: inherit;
+    font-family: inherit;
+    padding: 6px;
+    resize: vertical;
+    min-height: 100px;
+  }
+  .comment-text:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--card-bg);
+  }
+  .edit-hint {
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+  .comment-url {
+    text-align: center;
+    margin-top: 10px;
+    font-size: 12px;
+  }
+  .comment-url a { color: var(--muted); text-decoration: none; }
+  .comment-url a:hover { text-decoration: underline; }
+  .current-label {
+    text-align: center;
+    margin-top: 14px;
+    font-size: 13px;
+    min-height: 18px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .buttons {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-top: 22px;
+  }
+  button {
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 12px 8px;
+    font-size: 13px;
+    cursor: pointer;
+    line-height: 1.3;
+  }
+  button:hover { border-color: var(--accent); }
+  button b { display: block; font-size: 16px; margin-bottom: 2px; }
+  .nav-row {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 18px;
+  }
+  .nav-row button { flex: 1; margin: 0 4px; }
+  .stats {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 20px;
+    font-size: 12px;
+    color: var(--muted);
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .footer-row {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+  }
+  #exportBtn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-weight: 600;
+  }
+  .done-msg {
+    text-align: center;
+    font-size: 16px;
+    margin-top: 16px;
+    color: var(--accent);
+  }
+</style>
+</head>
+<body>
+  <h1>Stance annotation tool</h1>
+  <div class="subtitle">Loads a pipe-delimited text|url file, labels it into NEUTRAL / ZA-VLAST / PROTIV-VLASTI</div>
+
+  <div class="panel" id="loader">
+    <p>Select your cleaned comments file (e.g. <code>_youtube_all_texts_clean.txt</code>):</p>
+    <input type="file" id="fileInput" accept=".txt,.csv">
+  </div>
+
+  <div class="panel" id="workspace">
+    <div class="progress-row">
+      <span id="progressText">0 / 0</span>
+      <span id="labeledText">labeled: 0</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+    <div class="comment-card">
+      <textarea class="comment-text" id="commentText" rows="5"></textarea>
+    </div>
+    <div class="edit-hint">click text to fix typos — Esc to leave editing (re-enables 1/2/3/⌫ shortcuts)</div>
+    <div class="comment-url"><a id="commentUrl" href="#" target="_blank" rel="noopener"></a></div>
+    <div class="current-label" id="currentLabel"></div>
+
+    <div class="buttons">
+      <button data-label="NEUTRAL"><b>1</b>NEUTRAL</button>
+      <button data-label="ZA-VLAST"><b>2</b>ZA-VLAST</button>
+      <button data-label="PROTIV-VLASTI"><b>3</b>PROTIV-VLASTI</button>
+      <button data-label="SKIP"><b>⌫</b>discard</button>
+    </div>
+
+    <div class="nav-row">
+      <button id="prevBtn">← prev (Left arrow)</button>
+      <button id="nextBtn">next (Right arrow) →</button>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="footer-row">
+      <button id="exportBtn">Export labeled data (.txt)</button>
+      <button id="restartBtn" style="margin-left:8px;">Restart from beginning</button>
+    </div>
+    <div class="done-msg" id="doneMsg" style="display:none;">All comments reviewed — export whenever you're ready.</div>
+  </div>
+
+<script>
+(function () {
+  const LABELS = ["NEUTRAL", "ZA-VLAST", "PROTIV-VLASTI", "SKIP"];
+  let rows = [];      // [{text, url}] — original, untouched
+  let texts = [];     // parallel array: current (possibly edited) text, source of truth for export
+  let labels = [];    // parallel array: null | "NEUTRAL" | "ZA-VLAST" | "PROTIV-VLASTI" | "SKIP"
+  let current = 0;
+  let storageKey = null;
+  let loadedFileName = null;
+
+  const el = (id) => document.getElementById(id);
+
+  function exportFileName() {
+    if (!loadedFileName) return "labeled_output.txt";
+    const base = loadedFileName.replace(/\.[^.]+$/, "");
+    return base + "_annotated.txt";
+  }
+
+  // Full-text CSV parser: handles quoted fields containing the delimiter,
+  // quotes, or embedded newlines (matches Python's csv module default dialect).
+  function parseCSV(text, delimiter) {
+    const rowsOut = [];
+    let row = [];
+    let field = "";
+    let inQuotes = false;
+    let i = 0;
+    const len = text.length;
+    while (i < len) {
+      const c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
+          inQuotes = false; i++; continue;
+        }
+        field += c; i++; continue;
+      } else {
+        if (c === '"') { inQuotes = true; i++; continue; }
+        if (c === delimiter) { row.push(field); field = ""; i++; continue; }
+        if (c === "\r") { i++; continue; }
+        if (c === "\n") { row.push(field); rowsOut.push(row); row = []; field = ""; i++; continue; }
+        field += c; i++; continue;
+      }
+    }
+    if (field.length > 0 || row.length > 0) { row.push(field); rowsOut.push(row); }
+    return rowsOut;
+  }
+
+  function csvField(value) {
+    if (value == null) value = "";
+    if (value.includes("|") || value.includes('"') || value.includes("\n") || value.includes("\r")) {
+      return '"' + value.replace(/"/g, '""') + '"';
+    }
+    return value;
+  }
+
+  el("fileInput").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => loadFromText(reader.result, file.name);
+    reader.readAsText(file, "utf-8");
+  });
+
+  function loadFromText(text, fileName) {
+    loadedFileName = fileName;
+    const parsed = parseCSV(text, "|").filter(r => r.length > 1 && (r[0] !== "" || r[1] !== ""));
+    let header = parsed[0].map(h => h.trim().toLowerCase());
+    let dataRows = parsed;
+    let textIdx = 0, urlIdx = 1;
+    if (header.includes("text")) {
+      textIdx = header.indexOf("text");
+      urlIdx = header.indexOf("url");
+      dataRows = parsed.slice(1);
+    }
+    rows = dataRows.map(r => ({ text: (r[textIdx] || "").trim(), url: (urlIdx >= 0 ? (r[urlIdx] || "").trim() : "") }))
+                    .filter(r => r.text.length > 0);
+
+    storageKey = "stance-annotate:" + fileName + ":" + rows.length;
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      const parsedSave = JSON.parse(saved);
+      labels = parsedSave.labels;
+      texts = parsedSave.texts || rows.map(r => r.text);
+      current = Math.min(parsedSave.current || 0, rows.length - 1);
+    } else {
+      labels = new Array(rows.length).fill(null);
+      texts = rows.map(r => r.text);
+      current = 0;
+    }
+
+    el("loader").style.display = "none";
+    el("workspace").style.display = "block";
+    render();
+  }
+
+  function saveProgress() {
+    if (!storageKey) return;
+    localStorage.setItem(storageKey, JSON.stringify({ labels, texts, current }));
+  }
+
+  function render() {
+    if (rows.length === 0) return;
+    const row = rows[current];
+    el("commentText").value = texts[current];
+    if (row.url) {
+      el("commentUrl").textContent = row.url;
+      el("commentUrl").href = row.url;
+      el("commentUrl").style.display = "inline";
+    } else {
+      el("commentUrl").style.display = "none";
+    }
+    const lbl = labels[current];
+    el("currentLabel").textContent = lbl ? (lbl === "SKIP" ? "marked: discard" : "marked: " + lbl) : "";
+
+    const labeledCount = labels.filter(l => l != null).length;
+    el("progressText").textContent = (current + 1) + " / " + rows.length;
+    el("labeledText").textContent = "labeled: " + labeledCount + " / " + rows.length;
+    el("progressFill").style.width = (labeledCount / rows.length * 100).toFixed(1) + "%";
+
+    const counts = { NEUTRAL: 0, "ZA-VLAST": 0, "PROTIV-VLASTI": 0, SKIP: 0 };
+    labels.forEach(l => { if (l) counts[l]++; });
+    el("stats").innerHTML =
+      `NEUTRAL: ${counts.NEUTRAL} &nbsp;|&nbsp; ZA-VLAST: ${counts["ZA-VLAST"]} &nbsp;|&nbsp; ` +
+      `PROTIV-VLASTI: ${counts["PROTIV-VLASTI"]} &nbsp;|&nbsp; discarded: ${counts.SKIP} &nbsp;|&nbsp; ` +
+      `remaining: ${rows.length - labeledCount}`;
+
+    el("doneMsg").style.display = labeledCount === rows.length ? "block" : "none";
+  }
+
+  el("commentText").addEventListener("input", () => {
+    texts[current] = el("commentText").value;
+    saveProgress();
+  });
+
+  function setLabel(label) {
+    if (rows.length === 0) return;
+    texts[current] = el("commentText").value;
+    labels[current] = label;
+    saveProgress();
+    if (current < rows.length - 1) current++;
+    render();
+  }
+
+  function go(delta) {
+    if (rows.length === 0) return;
+    texts[current] = el("commentText").value;
+    current = Math.max(0, Math.min(rows.length - 1, current + delta));
+    render();
+  }
+
+  document.querySelectorAll(".buttons button").forEach(btn => {
+    btn.addEventListener("click", () => setLabel(btn.dataset.label));
+  });
+  el("prevBtn").addEventListener("click", () => go(-1));
+  el("nextBtn").addEventListener("click", () => go(1));
+
+  document.addEventListener("keydown", (e) => {
+    if (rows.length === 0) return;
+    if (document.activeElement === el("commentText")) {
+      if (e.key === "Escape") el("commentText").blur();
+      return; // let normal typing through untouched
+    }
+    if (e.key === "1") setLabel("NEUTRAL");
+    else if (e.key === "2") setLabel("ZA-VLAST");
+    else if (e.key === "3") setLabel("PROTIV-VLASTI");
+    else if (e.key === "Backspace" || e.key === "Delete" || e.key === "0") { e.preventDefault(); setLabel("SKIP"); }
+    else if (e.key === "ArrowLeft") go(-1);
+    else if (e.key === "ArrowRight") go(1);
+  });
+
+  el("restartBtn").addEventListener("click", () => {
+    if (rows.length === 0) return;
+    const ok = window.confirm(
+      "This erases ALL labels and text edits for this file and starts over from comment #1. This cannot be undone. Continue?"
+    );
+    if (!ok) return;
+    labels = new Array(rows.length).fill(null);
+    texts = rows.map(r => r.text);
+    current = 0;
+    saveProgress();
+    render();
+  });
+
+  el("exportBtn").addEventListener("click", () => {
+    const lines = ["text|url|label"];
+    rows.forEach((row, i) => {
+      const label = labels[i];
+      if (!label || label === "SKIP") return;
+      lines.push(`${csvField(texts[i])}|${csvField(row.url)}|${label}`);
+    });
+    const blob = new Blob([lines.join("\n") + "\n"], { type: "text/plain;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = exportFileName();
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+})();
+</script>
+</body>
+</html>
