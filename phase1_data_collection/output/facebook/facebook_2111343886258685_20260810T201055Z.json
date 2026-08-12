@@ -1,0 +1,42 @@
+{
+  "source": "facebook",
+  "post_url": "https://www.facebook.com/groups/807531923306561/posts/2111343886258685/?comment_id=2111351592924581&__cft__[0]=AZYCluBMTWfjMIbfXYfsgF2E_9aFSIij0FdPdpfXc98xXMXiMWlqmMhkVq3Os5hhSpDXmSQeOGZk4eamKGB5qlZcQ5NBorjwe4WAntBlYCo82F5S81XatAdBWnaUrtHKXWnRV9dnSxRnR1DiKYLguVR9hVrBNU27F30qPJDroYExb6eZx-s7DRuBELjzUGghAu0&__tn__=R-R",
+  "post_ref": "2111343886258685",
+  "fetched_at": "20260810T201055Z",
+  "comment_count": 3,
+  "comments": [
+    {
+      "id": "2111343886258685_1",
+      "source": "facebook",
+      "post_url": "https://www.facebook.com/groups/807531923306561/posts/2111343886258685/?comment_id=2111351592924581&__cft__[0]=AZYCluBMTWfjMIbfXYfsgF2E_9aFSIij0FdPdpfXc98xXMXiMWlqmMhkVq3Os5hhSpDXmSQeOGZk4eamKGB5qlZcQ5NBorjwe4WAntBlYCo82F5S81XatAdBWnaUrtHKXWnRV9dnSxRnR1DiKYLguVR9hVrBNU27F30qPJDroYExb6eZx-s7DRuBELjzUGghAu0&__tn__=R-R",
+      "post_id": "2111343886258685",
+      "text": "radije i upičku al ne u partzane tamo lako uđeš al ti ni djeca neidu van",
+      "author": "Oldtimer Perić",
+      "created_at": "20 minutes ago",
+      "is_reply": false,
+      "parent_comment_id": null
+    },
+    {
+      "id": "2111343886258685_2",
+      "source": "facebook",
+      "post_url": "https://www.facebook.com/groups/807531923306561/posts/2111343886258685/?comment_id=2111351592924581&__cft__[0]=AZYCluBMTWfjMIbfXYfsgF2E_9aFSIij0FdPdpfXc98xXMXiMWlqmMhkVq3Os5hhSpDXmSQeOGZk4eamKGB5qlZcQ5NBorjwe4WAntBlYCo82F5S81XatAdBWnaUrtHKXWnRV9dnSxRnR1DiKYLguVR9hVrBNU27F30qPJDroYExb6eZx-s7DRuBELjzUGghAu0&__tn__=R-R",
+      "post_id": "2111343886258685",
+      "text": "Dragan Jovanović  · 25mLikeReplyShare1",
+      "author": "Dragan Jovanović",
+      "created_at": "25 minutes ago",
+      "is_reply": false,
+      "parent_comment_id": null
+    },
+    {
+      "id": "2111343886258685_3",
+      "source": "facebook",
+      "post_url": "https://www.facebook.com/groups/807531923306561/posts/2111343886258685/?comment_id=2111351592924581&__cft__[0]=AZYCluBMTWfjMIbfXYfsgF2E_9aFSIij0FdPdpfXc98xXMXiMWlqmMhkVq3Os5hhSpDXmSQeOGZk4eamKGB5qlZcQ5NBorjwe4WAntBlYCo82F5S81XatAdBWnaUrtHKXWnRV9dnSxRnR1DiKYLguVR9hVrBNU27F30qPJDroYExb6eZx-s7DRuBELjzUGghAu0&__tn__=R-R",
+      "post_id": "2111343886258685",
+      "text": "Oldtimer Perić  · 20mradije i upičku al ne u partzane tamo lako uđeš al ti ni djeca neidu vanLikeReplyShare",
+      "author": "Oldtimer Perić",
+      "created_at": "20 minutes ago",
+      "is_reply": false,
+      "parent_comment_id": null
+    }
+  ]
+}
