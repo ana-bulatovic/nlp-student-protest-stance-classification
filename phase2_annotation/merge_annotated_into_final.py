@@ -31,6 +31,13 @@ LABEL_FILES = {
     "NEUTRAL": ANNOTATED_DIR / "fb_final_neutral_annotated.txt",
 }
 
+# Imena fajlova za --split (rucni pregled pre prepisivanja u finalne).
+SPLIT_NAMES = {
+    "ZA-VLAST": "fb_novo_za_vlast.txt",
+    "PROTIV-VLASTI": "fb_novo_protiv_vlasti.txt",
+    "NEUTRAL": "fb_novo_neutral.txt",
+}
+
 
 def norm(text: str) -> str:
     return " ".join((text or "").lower().split())
@@ -98,6 +105,18 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Samo prikazi sta bi bilo dodato, bez upisa u fajlove.",
     )
+    parser.add_argument(
+        "--split",
+        action="store_true",
+        help="Ne diraj finalne fajlove. Umesto toga razvrstaj nove komentare u tri "
+        "zasebna fajla, za rucni pregled pre prepisivanja u finalne.",
+    )
+    parser.add_argument(
+        "--split-dir",
+        type=Path,
+        default=SCRIPT_DIR / "za_pregled",
+        help="Folder u koji ide izlaz opcije --split (default: phase2_annotation/za_pregled).",
+    )
     return parser.parse_args()
 
 
@@ -134,6 +153,17 @@ def main() -> int:
     print(f"Procitano iz: {args.annotated} ({len(annotated)} anotiranih komentara)")
     print(f"Preskoceno kao duplikat: {skipped_duplicates}")
     print()
+
+    if args.split:
+        args.split_dir.mkdir(parents=True, exist_ok=True)
+        for label, name in SPLIT_NAMES.items():
+            path = args.split_dir / name
+            rows = additions[label]
+            path.write_text(("\n".join(rows) + "\n") if rows else "", encoding="utf-8")
+            print(f"{path}: {len(rows)} komentara")
+        print()
+        print(f"Ukupno razvrstano: {total_added}. Finalni fajlovi nisu dirani.")
+        return 0
 
     for label, path in LABEL_FILES.items():
         before = len(existing_lines[label])

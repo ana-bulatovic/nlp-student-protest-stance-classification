@@ -109,6 +109,13 @@ _COUNT_COMMENTS_JS = """
 () => document.querySelectorAll('%s').length
 """ % (_COMMENT_SELECTOR,)
 
+# Reels are the one format where the page loads with no comments in the DOM at
+# all: the player only shows a "Comment" button, and the panel behind it needs
+# 10-15 seconds to populate (verified by inspecting a live reel). Normal posts
+# already carry their comments on load, so this button is only ever pressed
+# when the page turns up empty.
+_COMMENT_BUTTON_RE = re.compile(r"^(comment|komentar|коментар)$", re.I)
+
 # Text patterns for "load more comments/replies" buttons, covering the
 # English and Serbian (Latin + Cyrillic) phrasings we've seen so far.
 _MORE_COMMENTS_RE = re.compile(
@@ -117,6 +124,17 @@ _MORE_COMMENTS_RE = re.compile(
 _MORE_REPLIES_RE = re.compile(
     r"(view|show|see|prikaž|прикаж).*(repl|odgovor|одговор)", re.I
 )
+
+# Facebook defaults the comment section to "Most relevant", which hides a large
+# share of the thread. The dropdown also offers "All comments"; switching costs
+# one click and is the difference between a sample and the whole thread.
+_SORT_BUTTON_RE = re.compile(r"^(most relevant|top comments|najrelevantnij|најрелевантниј)", re.I)
+_ALL_COMMENTS_RE = re.compile(r"^all comments|^svi komentari|^сви коментари", re.I)
+
+# The "view more" button doubles as a progress counter ("View more comments
+# 6 of 24"), which is the only place Facebook states how many comments the
+# post actually has.
+_PROGRESS_RE = re.compile(r"(\d[\d.,]*)\s*of\s*(\d[\d.,]*)", re.I)
 
 # Facebook truncates long comments with a clickable "See more" link that
 # expands the full text in place. We click through all of these before
@@ -185,42 +203,200 @@ def _clean_comment_text(full_text: str, author: str) -> str:
     return clean_comment_text(full_text, author)
 
 
-def expand_comments(page: Page, max_comments: int, include_replies: bool, max_clicks: int = 25) -> None:
-    """Repeatedly click "view more comments/replies" buttons to load the thread."""
+def open_comment_panel(page: Page, timeout_ms: int = 30000) -> bool:
+    """Reveal comments on pages that load without any (reels).
+
+    Returns True if comments are present by the end, either because they were
+    there already or because opening the panel brought them in.
+    """
+    try:
+        if page.evaluate(_COUNT_COMMENTS_JS) > 0:
+            return True
+    except Exception:
+        pass
+
+    # The panel is slow and sometimes swallows the first click outright, so a
+    # single attempt is the difference between the whole thread and nothing.
+    for attempt in range(3):
+        try:
+            page.get_by_role("button", name=_COMMENT_BUTTON_RE).first.click(timeout=5000)
+        except Exception:
+            page.wait_for_timeout(2000)
+            continue
+
+        try:
+            page.wait_for_selector(_COMMENT_SELECTOR, state="attached", timeout=timeout_ms)
+            page.wait_for_timeout(1500)
+            return True
+        except PlaywrightTimeoutError:
+            if attempt < 2:
+                page.reload(wait_until="domcontentloaded")
+                page.wait_for_timeout(4000)
+    return False
+
+
+def switch_to_all_comments(page: Page) -> bool:
+    """Move the comment section off "Most relevant" onto "All comments"."""
+    try:
+        for button in page.get_by_role("button").all():
+            try:
+                text = button.inner_text(timeout=400).strip()
+            except Exception:
+                continue
+            if not text or len(text) > 40 or not _SORT_BUTTON_RE.search(text):
+                continue
+            button.click(timeout=3000)
+            page.wait_for_timeout(1200)
+            option = page.get_by_role("menuitem", name=_ALL_COMMENTS_RE)
+            if option.count() == 0:
+                page.keyboard.press("Escape")
+                return False
+            option.first.click(timeout=3000)
+            page.wait_for_timeout(3000)
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def reported_comment_total(page: Page) -> int | None:
+    """How many comments Facebook says the post has, per the "N of M" counter."""
+    try:
+        buttons = page.get_by_role("button").all()
+    except Exception:
+        return None
+    for button in buttons:
+        try:
+            text = button.inner_text(timeout=400)
+        except Exception:
+            continue
+        if not text or not _MORE_COMMENTS_RE.search(text):
+            continue
+        match = _PROGRESS_RE.search(text)
+        if match:
+            try:
+                return int(re.sub(r"[.,]", "", match.group(2)))
+            except ValueError:
+                return None
+    return None
+
+
+def _scroll_over_comments(page: Page, allow_page_scroll: bool) -> None:
+    """Wheel over the comment list itself, so lazy loading kicks in.
+
+    On a reel the wheel must never reach the page: the reel player treats a
+    page-level scroll as "next reel" and silently swaps in a different video,
+    after which we would be reading a stranger's comments.
+    """
+    try:
+        box = page.locator(_COMMENT_SELECTOR).last.bounding_box(timeout=1500)
+    except Exception:
+        box = None
+    if box:
+        page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+        page.mouse.wheel(0, 1000)
+    elif allow_page_scroll:
+        page.mouse.wheel(0, 1200)
+
+
+# Matching is done inside the page rather than by walking Playwright locators.
+# A long thread ends up with hundreds of buttons, and reading each one's text
+# over the wire made every round slower than the last - the search itself, not
+# the loading, was what capped a big reel at a few hundred comments.
+_CLICK_MATCHING_BUTTON_JS = """
+(pattern) => {
+    const re = new RegExp(pattern, 'i');
+    for (const el of document.querySelectorAll('[role="button"], button')) {
+        const text = (el.innerText || '').trim();
+        if (!text || text.length > 60 || !re.test(text)) continue;
+        el.scrollIntoView({ block: 'center' });
+        el.click();
+        return text.slice(0, 40);
+    }
+    return null;
+}
+"""
+
+
+def _click_first_match(page: Page, pattern: re.Pattern[str]) -> bool:
+    """Click the first button whose label matches, if there is one."""
+    try:
+        clicked = page.evaluate(_CLICK_MATCHING_BUTTON_JS, pattern.pattern)
+    except Exception:
+        return False
+    if not clicked:
+        return False
+    page.wait_for_timeout(1800)
+    return True
+
+
+def expand_comments(
+    page: Page,
+    max_comments: int,
+    include_replies: bool,
+    expected_post_id: str = "",
+    allow_page_scroll: bool = True,
+    deadline: float = 0.0,
+    patience: int = 8,
+    max_rounds: int = 600,
+) -> int:
+    """Load the whole thread by scrolling and clicking "view more" buttons.
+
+    Facebook hands out comments in batches of roughly ten and the button
+    disappears while a batch is in flight, so a single miss is not the end of
+    the thread — hence `patience` rounds of no growth before giving up. A
+    1500-comment reel therefore needs a few hundred rounds, which is what
+    `deadline` is there to bound.
+
+    Returns the number of comments loaded.
+    """
     patterns = [_MORE_COMMENTS_RE]
     if include_replies:
         patterns.append(_MORE_REPLIES_RE)
 
-    for _ in range(max_clicks):
-        if max_comments:
-            try:
-                count = page.evaluate(_COUNT_COMMENTS_JS)
-            except Exception:
-                count = 0
-            if count >= max_comments:
+    def count() -> int:
+        try:
+            return page.evaluate(_COUNT_COMMENTS_JS)
+        except Exception:
+            return 0
+
+    stalled = 0
+    last_report = 0
+    for round_index in range(max_rounds):
+        before = count()
+        if max_comments and before >= max_comments:
+            break
+        if deadline and time.monotonic() > deadline:
+            print(f"    (dostignuto vremensko ogranicenje na {before} komentara)")
+            break
+        if expected_post_id and extract_post_id(page.url) != expected_post_id:
+            print(f"    (stranica je odlutala na {page.url} - prekidam)", file=sys.stderr)
+            break
+
+        _scroll_over_comments(page, allow_page_scroll)
+        page.wait_for_timeout(900)
+
+        # "View more comments" must be tried before "View N replies". Reply
+        # buttons sit higher up the thread, so taking whichever matched first
+        # meant expanding reply after reply and never reaching the next batch
+        # of comments - a 844-comment reel stayed stuck at the first six.
+        for pattern in patterns:
+            if _click_first_match(page, pattern):
                 break
 
-        clicked = False
-        try:
-            buttons = page.get_by_role("button").all()
-        except Exception:
-            buttons = []
-        for button in buttons:
-            try:
-                text = button.inner_text(timeout=500)
-            except Exception:
-                continue
-            if any(pattern.search(text) for pattern in patterns):
-                try:
-                    button.scroll_into_view_if_needed(timeout=2000)
-                    button.click(timeout=2000)
-                    clicked = True
-                    page.wait_for_timeout(900)
-                    break  # DOM changed; re-scan buttons next loop
-                except Exception:
-                    continue
-        if not clicked:
-            break
+        after = count()
+        if after >= last_report + 50:
+            last_report = after
+            print(f"    ucitano {after} komentara...")
+
+        if after == before:
+            stalled += 1
+            if stalled >= patience:
+                break
+        else:
+            stalled = 0
+
+    return count()
 
 
 def expand_truncated_comments(page: Page, max_clicks: int = 300) -> int:
@@ -255,23 +431,41 @@ def fetch_post_comments(
     max_comments: int,
     include_replies: bool,
     debug_html_dir: Path | None,
+    post_timeout: float = 300.0,
 ) -> tuple[str, str, list[CommentRecord]]:
     page.goto(post_url, wait_until="domcontentloaded", timeout=45000)
     page.wait_for_timeout(2000)
     _dismiss_cookie_banner(page)
 
-    for _ in range(4):
-        page.mouse.wheel(0, 1800)
-        page.wait_for_timeout(700)
+    post_id = extract_post_id(post_url)
+    is_reel = bool(re.search(r"/reels?/", post_url))
 
-    expand_comments(page, max_comments, include_replies)
+    # Reels have nothing below the fold, and scrolling the page would swap the
+    # player over to the next reel in the feed.
+    if not is_reel:
+        for _ in range(4):
+            page.mouse.wheel(0, 1800)
+            page.wait_for_timeout(700)
+
+    open_comment_panel(page)
+    switch_to_all_comments(page)
+    reported = reported_comment_total(page)
+    if reported is not None:
+        print(f"  Facebook prijavljuje {reported} komentara")
+    expand_comments(
+        page,
+        max_comments,
+        include_replies,
+        expected_post_id=post_id,
+        allow_page_scroll=not is_reel,
+        deadline=time.monotonic() + post_timeout if post_timeout else 0.0,
+    )
 
     # All comments are loaded at this point; now expand any truncated
     # ("...See more") comment text before reading it.
     expand_truncated_comments(page)
 
     raw_comments = page.evaluate(_EXTRACT_COMMENTS_JS)
-    post_id = extract_post_id(post_url)
 
     records: list[CommentRecord] = []
     for index, item in enumerate(raw_comments):
@@ -357,6 +551,15 @@ def parse_args() -> argparse.Namespace:
         "max number of posts to walk through (default: 20).",
     )
     parser.add_argument(
+        "--post-timeout",
+        dest="post_timeout",
+        type=float,
+        default=300.0,
+        help="Koliko sekundi najvise da se dovlace komentari jedne objave "
+        "(0 = bez ogranicenja; default: 300). Objava sa 1500 komentara traje "
+        "i preko 10 minuta.",
+    )
+    parser.add_argument(
         "--headless",
         action="store_true",
         help="Run the browser without a visible window (faster, but harder to debug).",
@@ -423,7 +626,8 @@ def main() -> int:
                 if kind == "post":
                     post_url = value if value.startswith("http") else f"https://www.facebook.com/{value}"
                     post_url, post_id, comments = fetch_post_comments(
-                        page, post_url, args.max_comments, not args.no_replies, debug_html_dir
+                        page, post_url, args.max_comments, not args.no_replies, debug_html_dir,
+                        args.post_timeout,
                     )
                     print(f"  Found {len(comments)} comments")
                     txt, _ = save_comments(comments, args.output_dir, "facebook", post_id, post_url)
@@ -444,7 +648,8 @@ def main() -> int:
                     print(f"  Found {len(post_links)} posts in feed")
                     for post_url in post_links:
                         post_url, post_id, comments = fetch_post_comments(
-                            page, post_url, args.max_comments, not args.no_replies, debug_html_dir
+                            page, post_url, args.max_comments, not args.no_replies, debug_html_dir,
+                            args.post_timeout,
                         )
                         print(f"  Post {post_id}: {len(comments)} comments")
                         txt, _ = save_comments(comments, args.output_dir, "facebook", post_id, post_url)
