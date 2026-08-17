@@ -84,17 +84,18 @@ def run_encoder(texts: list[str]) -> None:
             file=sys.stderr,
         )
         return
-    model, meta, use_cuda = load_model(ENCODER_DIR)
+    bundle = load_model(ENCODER_DIR)
+    _model, _tok, meta, use_cuda = bundle
     cfg = meta.get("best_config") or {}
     print("\n" + "=" * 60)
     print(
-        f"ENCODER (Simple Transformers) | "
+        f"ENCODER (HF Trainer) | "
         f"{cfg.get('model_key', meta.get('model_key', '?'))} "
         f"epochs={cfg.get('epochs', meta.get('epochs', '?'))} | "
         f"device={'cuda' if use_cuda else 'cpu'}"
     )
     print("=" * 60)
-    for i, row in enumerate(predict_texts(model, texts), 1):
+    for i, row in enumerate(predict_texts(bundle, texts), 1):
         print(f"\n--- primer {i}/{len(texts)} ---")
         print_row(row)
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Faza 3.2a — enkoderski LLM preko Simple Transformers.
+"""Faza 3.2a — enkoderski modeli: BERTić i mBERT.
 
-Fine-tune BERTić (mono) i mBERT (multi) za stance klasifikaciju.
-Interfejs: Simple Transformers ClassificationModel (preporuka profesora).
-Evaluacija: stratifikovana CV + poređenje po broju epoha.
+Fine-tune preko Hugging Face Trainer (isti modeli kao Simple Transformers).
+Simple Transformers ClassificationModel na Windows+CUDA često ugasi proces
+bez traceback-a (fp16, multiprocessing, putanje sa razmakom).
 """
 
 from __future__ import annotations
@@ -13,13 +13,12 @@ import json
 import os
 import shutil
 import sys
+import tempfile
 import warnings
 from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-# Na Windows+CPU: sklearn PRE torch/transformers može da sruši proces (0xC0000005).
-# Zato prvo st_compat (učitava torch), pa tek onda sklearn.
 os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
 os.environ.setdefault("WANDB_DISABLED", "true")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
@@ -35,23 +34,25 @@ print("Ucitavanje torch/transformers (st_compat) ...", flush=True)
 import st_compat  # noqa: E402
 
 st_compat.apply()
-print("OK - torch spreman. Ucitavanje sklearn/pandas ...", flush=True)
+print("OK - torch spreman. Ucitavanje sklearn ...", flush=True)
 
 import numpy as np  # noqa: E402
-import pandas as pd  # noqa: E402
+import torch  # noqa: E402
 from sklearn.metrics import (  # noqa: E402
     accuracy_score,
     classification_report,
     f1_score,
 )
 from sklearn.model_selection import StratifiedKFold  # noqa: E402
+from torch.utils.data import Dataset  # noqa: E402
 
 from common.data import DEFAULT_DATA, LABELS, load_dataset  # noqa: E402
 
 DEFAULT_OUTPUT = SCRIPT_DIR / "output" / "encoder_results.json"
 DEFAULT_MODEL_DIR = SCRIPT_DIR / "output" / "encoder_best"
+LABEL2ID = {lab: i for i, lab in enumerate(LABELS)}
+ID2LABEL = {i: lab for lab, i in LABEL2ID.items()}
 
-# BERTić = ELECTRA arhitektura; mBERT = BERT
 MODEL_PRESETS = {
     "bertic": {"model_type": "electra", "model_name": "classla/bcms-bertic"},
     "mbert": {"model_type": "bert", "model_name": "bert-base-multilingual-cased"},
@@ -70,9 +71,23 @@ class EncoderResult:
     fold_macro_f1: list[float]
 
 
+class StanceDataset(Dataset):
+    def __init__(self, encodings: dict, label_ids: list[int]):
+        self.encodings = encodings
+        self.label_ids = label_ids
+
+    def __len__(self) -> int:
+        return len(self.label_ids)
+
+    def __getitem__(self, idx: int) -> dict:
+        item = {k: torch.tensor(v[idx]) for k, v in self.encodings.items()}
+        item["labels"] = torch.tensor(self.label_ids[idx])
+        return item
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Fine-tuning enkodera (Simple Transformers): BERTić / mBERT."
+        description="Fine-tuning enkodera (HF Trainer): BERTić / mBERT."
     )
     parser.add_argument("--data", type=Path, default=DEFAULT_DATA)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
@@ -104,7 +119,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--fp16",
         action="store_true",
-        help="Mešana preciznost (brže; na Windows+CUDA često ruši proces).",
+        help="Mešana preciznost (brže; na Windows+CUDA može da ruši proces).",
     )
     return parser.parse_args()
 
@@ -127,71 +142,65 @@ def compute_metrics_arrays(y_true: list[str], y_pred: list[str]) -> dict:
     }
 
 
-def make_args(
+def encode_labels(labels: list[str]) -> list[int]:
+    return [LABEL2ID[lab] for lab in labels]
+
+
+def make_training_args(
     output_dir: Path,
     epochs: int,
     batch_size: int,
     lr: float,
-    max_length: int,
-    seed: int,
-    fp16: bool = False,
-):
-    st_compat.apply()
-    from simpletransformers.classification import ClassificationArgs
-
-    args = ClassificationArgs()
-    args.num_train_epochs = epochs
-    args.learning_rate = lr
-    args.max_seq_length = max_length
-    args.train_batch_size = batch_size
-    args.eval_batch_size = batch_size
-    args.overwrite_output_dir = True
-    args.reprocess_input_data = True
-    args.use_multiprocessing = False
-    args.use_multiprocessing_for_evaluation = False
-    args.save_eval_checkpoints = False
-    args.save_model_every_epoch = False
-    args.save_steps = -1
-    args.save_best_model = False
-    args.evaluate_during_training = False
-    args.manual_seed = seed
-    args.output_dir = str(output_dir)
-    args.best_model_dir = str(output_dir / "best")
-    args.labels_list = list(LABELS)
-    args.silent = False
-    args.logging_steps = 50
-    # Windows+CUDA: fp16/wandb često ugase proces bez Python traceback-a
-    args.fp16 = fp16
-    args.wandb_project = None
-    if hasattr(args, "dataloader_num_workers"):
-        args.dataloader_num_workers = 0
-    if hasattr(args, "process_count"):
-        args.process_count = 1
-    return args
-
-
-def build_model(
-    model_key: str,
-    output_dir: Path,
-    epochs: int,
-    batch_size: int,
-    lr: float,
-    max_length: int,
     seed: int,
     use_cuda: bool,
-    fp16: bool = False,
+    fp16: bool,
 ):
-    st_compat.apply()
-    from simpletransformers.classification import ClassificationModel
+    from transformers import TrainingArguments
 
-    preset = MODEL_PRESETS[model_key]
-    args = make_args(output_dir, epochs, batch_size, lr, max_length, seed, fp16=fp16)
-    return ClassificationModel(
-        preset["model_type"],
-        preset["model_name"],
+    common = dict(
+        output_dir=str(output_dir),
+        num_train_epochs=epochs,
+        per_device_train_batch_size=batch_size,
+        per_device_eval_batch_size=batch_size,
+        learning_rate=lr,
+        weight_decay=0.01,
+        warmup_ratio=0.1,
+        logging_steps=25,
+        save_strategy="no",
+        report_to=[],
+        seed=seed,
+        fp16=bool(fp16 and use_cuda),
+        dataloader_num_workers=0,
+        dataloader_pin_memory=False,
+        overwrite_output_dir=True,
+        disable_tqdm=False,
+    )
+    try:
+        return TrainingArguments(**common, eval_strategy="no")
+    except TypeError:
+        return TrainingArguments(**common, evaluation_strategy="no")
+
+
+def load_backbone(model_key: str, max_length: int):
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+    name = MODEL_PRESETS[model_key]["model_name"]
+    tokenizer = AutoTokenizer.from_pretrained(name)
+    model = AutoModelForSequenceClassification.from_pretrained(
+        name,
         num_labels=len(LABELS),
-        args=args,
-        use_cuda=use_cuda,
+        id2label=ID2LABEL,
+        label2id=LABEL2ID,
+    )
+    return tokenizer, model, max_length
+
+
+def tokenize_texts(tokenizer, texts: list[str], max_length: int) -> dict:
+    return tokenizer(
+        texts,
+        truncation=True,
+        padding=True,
+        max_length=max_length,
     )
 
 
@@ -209,32 +218,50 @@ def train_one_fold(
     use_cuda: bool,
     fp16: bool = False,
 ) -> list[str]:
+    from transformers import Trainer
+
     if work_dir.exists():
         shutil.rmtree(work_dir, ignore_errors=True)
     work_dir.mkdir(parents=True, exist_ok=True)
 
     print("    ucitavam model ...", flush=True)
-    model = build_model(
-        model_key, work_dir, epochs, batch_size, lr, max_length, seed, use_cuda, fp16=fp16
+    tokenizer, model, max_length = load_backbone(model_key, max_length)
+    train_ds = StanceDataset(
+        tokenize_texts(tokenizer, train_texts, max_length),
+        encode_labels(train_labels),
     )
-    train_df = pd.DataFrame({"text": train_texts, "labels": train_labels})
-    print(f"    treniram {len(train_df)} primera, {epochs} epoha ...", flush=True)
-    try:
-        model.train_model(train_df)
-    except Exception:
-        print("    GRESKA u train_model (traceback ispod):", flush=True)
-        raise
+    print(f"    treniram {len(train_ds)} primera, {epochs} epoha ...", flush=True)
+    trainer = Trainer(
+        model=model,
+        args=make_training_args(work_dir, epochs, batch_size, lr, seed, use_cuda, fp16),
+        train_dataset=train_ds,
+    )
+    trainer.train()
     print("    predikcija ...", flush=True)
 
-    preds, _raw = model.predict(test_texts)
-    # preds mogu biti string (labels_list) ili int
-    out: list[str] = []
-    for p in preds:
-        if isinstance(p, str) and p in LABELS:
-            out.append(p)
-        else:
-            out.append(LABELS[int(p)])
-    return out
+    model.eval()
+    device = next(model.parameters()).device
+    preds: list[str] = []
+    with torch.no_grad():
+        for i in range(0, len(test_texts), batch_size):
+            chunk = test_texts[i : i + batch_size]
+            enc = tokenizer(
+                chunk,
+                truncation=True,
+                padding=True,
+                max_length=max_length,
+                return_tensors="pt",
+            )
+            enc = {k: v.to(device) for k, v in enc.items()}
+            logits = model(**enc).logits
+            ids = logits.argmax(dim=-1).tolist()
+            preds.extend(ID2LABEL[int(j)] for j in ids)
+
+    del trainer, model
+    if use_cuda:
+        torch.cuda.empty_cache()
+    shutil.rmtree(work_dir, ignore_errors=True)
+    return preds
 
 
 def evaluate_encoder_config(
@@ -262,15 +289,13 @@ def evaluate_encoder_config(
         print(f"  fold {fold_i}/{folds} ...", flush=True)
         if fold_i == 1:
             print(
-                "    (prvi fold skida model sa Hugging Face ako nije u kesu, "
-                "pa trenira — to moze potrajati; nije crash)",
+                "    (prvi fold skida model sa Hugging Face ako nije u kesu)",
                 flush=True,
             )
         train_texts = [texts[i] for i in train_idx]
         train_labels = [labels[i] for i in train_idx]
         test_texts = [texts[i] for i in test_idx]
         test_labels = [labels[i] for i in test_idx]
-
         work = scratch_dir / f"{model_key}_e{epochs}_fold{fold_i}"
         preds = train_one_fold(
             model_key=model_key,
@@ -294,7 +319,7 @@ def evaluate_encoder_config(
         fold_scores.append(fold_macro)
         all_true.extend(test_labels)
         all_pred.extend(preds)
-        print(f"    fold macro-F1={fold_macro:.4f}")
+        print(f"    fold macro-F1={fold_macro:.4f}", flush=True)
 
     metrics = compute_metrics_arrays(all_true, all_pred)
     result = EncoderResult(
@@ -324,18 +349,29 @@ def train_full_and_save(
     best_meta: dict,
     fp16: bool = False,
 ) -> None:
+    from transformers import Trainer
+
     if out_dir.exists():
         shutil.rmtree(out_dir, ignore_errors=True)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    model = build_model(
-        model_key, out_dir, epochs, batch_size, lr, max_length, seed, use_cuda, fp16=fp16
+    tokenizer, model, max_length = load_backbone(model_key, max_length)
+    train_ds = StanceDataset(
+        tokenize_texts(tokenizer, texts, max_length),
+        encode_labels(labels),
     )
-    train_df = pd.DataFrame({"text": texts, "labels": labels})
-    model.train_model(train_df)
+    trainer = Trainer(
+        model=model,
+        args=make_training_args(out_dir / "_train", epochs, batch_size, lr, seed, use_cuda, fp16),
+        train_dataset=train_ds,
+    )
+    trainer.train()
+    tokenizer.save_pretrained(out_dir)
+    trainer.save_model(out_dir)
+    shutil.rmtree(out_dir / "_train", ignore_errors=True)
 
     meta = {
-        "framework": "simpletransformers",
+        "framework": "transformers.Trainer",
         "model_key": model_key,
         "model_type": MODEL_PRESETS[model_key]["model_type"],
         "model_name": MODEL_PRESETS[model_key]["model_name"],
@@ -350,13 +386,11 @@ def train_full_and_save(
     )
 
 
-def _check_compat() -> None:
-    """Deprecated: logika je u st_compat.apply()."""
-    return
-
-
-def _patch_simpletransformers_compat() -> None:
-    st_compat.apply()
+def scratch_root() -> Path:
+    # Putanja projekta ima razmak ("Ana Bulatovic") — HF/ST to ne voli na Windows.
+    base = Path(tempfile.gettempdir()) / "opj_encoder_scratch"
+    base.mkdir(parents=True, exist_ok=True)
+    return base
 
 
 def main() -> int:
@@ -366,20 +400,20 @@ def main() -> int:
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
     warnings.filterwarnings("ignore", category=UserWarning)
+    warnings.filterwarnings("ignore", category=FutureWarning)
 
     args = parse_args()
     if not args.data.is_file():
         print(f"Nema dataset fajla: {args.data}", file=sys.stderr)
         return 1
 
-    print("Ucitavanje Simple Transformers ...", flush=True)
+    print("Ucitavanje transformers Trainer ...", flush=True)
     try:
-        import torch
-        from simpletransformers.classification import ClassificationModel  # noqa: F401
+        from transformers import AutoTokenizer  # noqa: F401
+        from transformers import Trainer  # noqa: F401
     except ImportError:
         print(
             "Nedostaju paketi. Instaliraj:\n"
-            "  pip install simpletransformers pandas\n"
             "  pip install -r phase3_model_training/requirements.txt",
             file=sys.stderr,
         )
@@ -391,19 +425,14 @@ def main() -> int:
     print("Distribucija:", dict(Counter(labels)))
     use_cuda = torch.cuda.is_available()
     print(f"Uredjaj: {'cuda' if use_cuda else 'cpu'}")
-    print("Framework: Simple Transformers (ClassificationModel)")
+    print("Framework: Hugging Face Trainer (BERTić / mBERT)")
     if use_cuda:
         print(f"GPU: {torch.cuda.get_device_name(0)}", flush=True)
-        print("fp16: iskljucen (stabilnije na Windows). Ukljuci sa --fp16 ako zelis.", flush=True)
+        print("fp16: iskljucen. Ukljuci sa --fp16 ako zelis.", flush=True)
     else:
         print(
-            "Upozorenje: PyTorch ne vidi CUDA, iako racunar mozda ima NVIDIA GPU.\n"
-            f"  torch={torch.__version__}  torch.version.cuda={torch.version.cuda}\n"
-            "  pip install torch sa PyPI skoro uvek stavi CPU build.\n"
-            "  Provera: python -c \"import torch; print(torch.__version__, torch.cuda.is_available())\"\n"
-            "  Popravka (NVIDIA, CUDA 12.1):\n"
-            "    pip uninstall torch torchvision torchaudio -y\n"
-            "    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121",
+            "Upozorenje: PyTorch ne vidi CUDA.\n"
+            f"  torch={torch.__version__}  torch.version.cuda={torch.version.cuda}",
             flush=True,
         )
 
@@ -416,8 +445,8 @@ def main() -> int:
         models = [models[0]]
         epochs_list = [1]
         folds = min(2, folds)
-        batch_size = min(4, batch_size)
-        print("\n=== QUICK MODE (Simple Transformers smoke test) ===")
+        batch_size = min(8, batch_size)
+        print("\n=== QUICK MODE (HF Trainer smoke test) ===")
 
     counts = Counter(labels)
     min_class = min(counts.values())
@@ -429,9 +458,7 @@ def main() -> int:
         )
         folds = min_class
 
-    scratch = SCRIPT_DIR / "output" / "_encoder_scratch"
-    scratch.mkdir(parents=True, exist_ok=True)
-
+    scratch = scratch_root()
     results: list[dict] = []
     reports: list[str] = []
 
@@ -439,7 +466,7 @@ def main() -> int:
         model_name = MODEL_PRESETS[model_key]["model_name"]
         for epochs in epochs_list:
             tag = f"{model_key} ({model_name}) | epochs={epochs}"
-            print(f"\n=== {tag} ===")
+            print(f"\n=== {tag} ===", flush=True)
             result, report = evaluate_encoder_config(
                 model_key=model_key,
                 texts=texts,
@@ -456,15 +483,16 @@ def main() -> int:
             )
             print(
                 f"acc={result.accuracy:.4f}  macro_f1={result.macro_f1:.4f}  "
-                f"fold_mean={float(np.mean(result.fold_macro_f1)):.4f}"
+                f"fold_mean={float(np.mean(result.fold_macro_f1)):.4f}",
+                flush=True,
             )
-            print(report)
+            print(report, flush=True)
             results.append(asdict(result))
             reports.append(f"### {tag}\n\n{report}")
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     payload = {
-        "framework": "simpletransformers",
+        "framework": "transformers.Trainer",
         "data": str(args.data),
         "n_samples": len(texts),
         "label_counts": dict(Counter(labels)),
