@@ -28,6 +28,9 @@ DEFAULT_INPUTS = [
     "x_final_za_vlast_annotated.txt",
     "x_final_protiv_vlasti_annotated.txt",
     "yt_final_annotated.txt",
+    "fb_final_neutral_annotated.txt",
+    "fb_final_za_vlast_annotated.txt",
+    "fb_final_protiv_vlasti_annotated.txt",
 ]
 
 

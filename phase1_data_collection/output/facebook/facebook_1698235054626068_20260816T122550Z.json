@@ -1,0 +1,53 @@
+{
+  "source": "facebook",
+  "post_url": "https://www.facebook.com/reel/1698235054626068",
+  "post_ref": "1698235054626068",
+  "fetched_at": "20260816T122550Z",
+  "comment_count": 4,
+  "comments": [
+    {
+      "id": "1698235054626068_0",
+      "source": "facebook",
+      "post_url": "https://www.facebook.com/reel/1698235054626068",
+      "post_id": "1698235054626068",
+      "text": "by Author\nI AM FROM GREECE AND I LOVE SERBIA.YOU ARE OUR BROTHERS",
+      "author": "Kostas Avasis",
+      "created_at": "2 weeks ago",
+      "is_reply": false,
+      "parent_comment_id": null
+    },
+    {
+      "id": "1698235054626068_1",
+      "source": "facebook",
+      "post_url": "https://www.facebook.com/reel/1698235054626068",
+      "post_id": "1698235054626068",
+      "text": "by Author\nLjudi, hajde da bar ovakve događaje gledamo bez politike.\nOvo su mladi i odrasli ljudi koji su uložili vreme, trud i rad da predstavljaju svoju zemlju na međunarodnom vatrogasnom takmičenju. Bez obzira na to ko je na vlasti i kakvo ko ima političko mišljenje, njihov trud zaslužuje poštovanje.\nMožemo imati različite stavove o političarima, ali nema potrebe da vređamo ljude koji časno predstavljaju svoju zemlju. Ako su stigli da učestvuju na ovakvom takmičenju, već su postigli nešto vredno poštovanja.\nBilo bi lepo da više jedni druge podržavamo, a manje tražimo razlog za svađu.",
+      "author": "Melinda Ivanity",
+      "created_at": "2 weeks ago",
+      "is_reply": false,
+      "parent_comment_id": null
+    },
+    {
+      "id": "1698235054626068_2",
+      "source": "facebook",
+      "post_url": "https://www.facebook.com/reel/1698235054626068",
+      "post_id": "1698235054626068",
+      "text": "by Author\nSrbi su Oslobađali male narode,u Oba Svjetska rata,a 1918' im napravili i granice,od Skopja do Maribora\n.\nDakle,,ništa bez Srpskog opanka,i Srpskih junaka",
+      "author": "Zdravko Proki",
+      "created_at": "2 weeks ago",
+      "is_reply": false,
+      "parent_comment_id": null
+    },
+    {
+      "id": "1698235054626068_5",
+      "source": "facebook",
+      "post_url": "https://www.facebook.com/reel/1698235054626068",
+      "post_id": "1698235054626068",
+      "text": "by Author",
+      "author": "Vera Mladenovic",
+      "created_at": "3 weeks ago",
+      "is_reply": false,
+      "parent_comment_id": null
+    }
+  ]
+}
