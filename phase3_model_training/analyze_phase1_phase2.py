@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Analiza podataka Faza 1 (prikupljanje) i Faza 2 (anotacija).
 
-Generiše grafike (PNG) i Markdown izveštaj.
+Generiše grafike (PNG) i Markdown izveštaj za ceo skup:
+Instagram, X, YouTube, Facebook.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ import numpy as np
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 ROOT = SCRIPT_DIR.parent
-PHASE1_IG = ROOT / "phase1_data_collection" / "output" / "instagram"
+PHASE1 = ROOT / "phase1_data_collection" / "output"
 PHASE2_ANN = ROOT / "phase2_annotation" / "annotated"
 OUT_DIR = SCRIPT_DIR / "output" / "data_analysis"
 REPORT = SCRIPT_DIR / "ANALIZA_FAZA1_FAZA2.md"
@@ -28,6 +29,14 @@ LABEL_COLORS = {
     "ZA-VLAST": "#2563eb",
     "PROTIV-VLASTI": "#dc2626",
 }
+PLATFORMS = ("Instagram", "X", "YouTube", "Facebook", "Nepoznato")
+PLATFORM_COLORS = {
+    "Instagram": "#e1306c",
+    "X": "#111827",
+    "YouTube": "#dc2626",
+    "Facebook": "#2563eb",
+    "Nepoznato": "#9ca3af",
+}
 
 
 def load_annotated(path: Path) -> list[tuple[str, str, str]]:
@@ -36,30 +45,82 @@ def load_annotated(path: Path) -> list[tuple[str, str, str]]:
         line = line.strip()
         if not line:
             continue
-        text, url, label = line.rsplit("|", 2)
-        rows.append((text.strip(), url.strip(), label.strip()))
+        parts = line.rsplit("|", 2)
+        if len(parts) != 3:
+            continue
+        text, url, label = parts
+        label = label.strip()
+        if label not in LABELS:
+            continue
+        rows.append((text.strip(), url.strip(), label))
     return rows
 
 
-def phase1_post_stats() -> dict[str, int]:
-    """Broj komentara po shortcode-u (max po export fajlu)."""
-    post_counts: dict[str, int] = {}
-    for path in sorted(PHASE1_IG.glob("instagram_*.txt")):
-        if path.name.startswith("instagram_all"):
-            continue
-        parts = path.stem.split("_")
-        short = parts[1] if len(parts) > 1 else path.stem
-        with path.open(encoding="utf-8", newline="") as handle:
-            reader = csv.DictReader(handle, delimiter="|")
-            n = sum(1 for row in reader if (row.get("text") or "").strip())
-        post_counts[short] = max(post_counts.get(short, 0), n)
-    return post_counts
+def detect_platform(url: str) -> str:
+    u = (url or "").lower()
+    if "instagram.com" in u:
+        return "Instagram"
+    if "x.com" in u or "twitter.com" in u:
+        return "X"
+    if "youtube.com" in u or "youtu.be" in u:
+        return "YouTube"
+    if "facebook.com" in u or "fb.com" in u or "fb.watch" in u:
+        return "Facebook"
+    return "Nepoznato"
+
+
+def source_id(url: str) -> str:
+    u = url or ""
+    m = re.search(r"instagram\.com/(?:p|reel)/([^/?]+)", u, flags=re.I)
+    if m:
+        return m.group(1)
+    m = re.search(r"(?:x|twitter)\.com/.+/status/(\d+)", u, flags=re.I)
+    if m:
+        return m.group(1)
+    m = re.search(r"(?:x|twitter)\.com/i/status/(\d+)", u, flags=re.I)
+    if m:
+        return m.group(1)
+    m = re.search(r"(?:youtube\.com/watch\?v=|youtu\.be/)([\w-]{6,})", u, flags=re.I)
+    if m:
+        return m.group(1)
+    m = re.search(r"facebook\.com/.+?/posts/([^/?]+)", u, flags=re.I)
+    if m:
+        return m.group(1)[:18]
+    m = re.search(r"facebook\.com/reel/([^/?]+)", u, flags=re.I)
+    if m:
+        return m.group(1)[:18]
+    if not u or u.upper() == "NEMA":
+        return "NEMA"
+    return u.rstrip("/").split("/")[-1][:18] or "NEMA"
 
 
 def count_lines(path: Path) -> int:
     if not path.is_file():
         return 0
     return sum(1 for line in path.read_text(encoding="utf-8").splitlines() if line.strip())
+
+
+def count_export_comments(folder: Path, prefix: str) -> dict[str, int]:
+    """Max broj komentara po post-id iz export TXT tabela."""
+    post_counts: dict[str, int] = {}
+    skip = {"all_texts", "final", "clean", "batch"}
+    for path in sorted(folder.glob(f"{prefix}*.txt")):
+        stem_l = path.stem.lower()
+        if any(s in stem_l for s in skip):
+            continue
+        parts = path.stem.split("_")
+        post_id = parts[1] if len(parts) > 1 else path.stem
+        try:
+            with path.open(encoding="utf-8", newline="") as handle:
+                reader = csv.DictReader(handle, delimiter="|")
+                if reader.fieldnames and "text" in reader.fieldnames:
+                    n = sum(1 for row in reader if (row.get("text") or "").strip())
+                else:
+                    n = max(0, count_lines(path) - 1)
+        except Exception:
+            n = max(0, count_lines(path) - 1)
+        post_counts[post_id] = max(post_counts.get(post_id, 0), n)
+    return post_counts
 
 
 def word_count(text: str) -> int:
@@ -71,9 +132,11 @@ def top_tokens(texts: list[str], n: int = 15) -> list[tuple[str, int]]:
         "i", "u", "na", "je", "se", "da", "su", "za", "od", "to", "a", "o", "sa",
         "ne", "li", "ali", "kao", "sve", "ovo", "taj", "ta", "te", "ti", "mi",
         "po", "iz", "do", "ako", "kad", "kada", "jos", "još", "vec", "već",
-        "the", "and", "of", "in", "to", "is", "ja", "smo", "ste", "sam",
+        "the", "and", "of", "in", "is", "ja", "smo", "ste", "sam",
         "bih", "bi", "će", "ce", "nije", "nismo", "nisu", "koji", "koja", "koje",
-        "ovaj", "ova", "ovo", "tako", "samo", "ima", "biti", "bio", "bila",
+        "ovaj", "ova", "tako", "samo", "ima", "biti", "bio", "bila",
+        "vas", "nam", "nas", "vam", "ga", "ih", "mu", "joj", "njih",
+        "što", "sto", "šta", "sta", "jer", "pa", "ili", "nema", "imao",
     }
     cnt: Counter[str] = Counter()
     for text in texts:
@@ -108,49 +171,53 @@ def save_fig(name: str) -> Path:
 
 
 def plot_funnel(raw: int, clean: int, annotated: int) -> Path:
-    fig, ax = plt.subplots(figsize=(7, 4.2))
-    stages = ["Sirovi tekstovi\n(instagram_all_texts)", "Očišćeni\n(_clean)", "Anotirani final\n(dataset_all)"]
+    fig, ax = plt.subplots(figsize=(7.2, 4.2))
+    stages = ["Sirovi tekstovi\n(all_texts)", "Očišćeni\n(_clean)", "Anotirani final\n(dataset_all)"]
     vals = [raw, clean, annotated]
     colors = ["#94a3b8", "#64748b", "#0f766e"]
     bars = ax.bar(stages, vals, color=colors, width=0.55)
     ax.set_ylabel("Broj komentara")
-    ax.set_title("Faza 1 → Faza 2: tok filtriranja podataka")
+    ax.set_title("Faza 1 → Faza 2: tok filtriranja (sve platforme)")
+    ymax = max(vals) if vals else 1
     for bar, v in zip(bars, vals):
-        ax.text(bar.get_x() + bar.get_width() / 2, v + max(vals) * 0.01, str(v),
-                ha="center", va="bottom", fontweight="bold")
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            v + ymax * 0.01,
+            str(v),
+            ha="center",
+            va="bottom",
+            fontweight="bold",
+        )
     return save_fig("01_funnel_phase1_to_phase2.png")
 
 
-def plot_label_pie(counts: Counter) -> Path:
+def plot_label_pie(counts: Counter, n: int) -> Path:
     fig, ax = plt.subplots(figsize=(6.5, 5))
-    labels = list(LABELS)
-    sizes = [counts[l] for l in labels]
-    colors = [LABEL_COLORS[l] for l in labels]
-    wedges, texts, autotexts = ax.pie(
+    sizes = [counts[l] for l in LABELS]
+    colors = [LABEL_COLORS[l] for l in LABELS]
+    _wedges, _texts, autotexts = ax.pie(
         sizes,
-        labels=labels,
+        labels=list(LABELS),
         colors=colors,
-        autopct=lambda p: f"{p:.1f}%\n({int(round(p/100*sum(sizes)))})",
+        autopct=lambda p: f"{p:.1f}%\n({int(round(p / 100 * sum(sizes)))})",
         startangle=90,
         textprops={"fontsize": 10},
     )
     for at in autotexts:
         at.set_color("white")
         at.set_fontweight("bold")
-    ax.set_title("Faza 2: raspodela klasa (N=500)")
+    ax.set_title(f"Faza 2: raspodela klasa (N={n})")
     return save_fig("02_label_distribution.png")
 
 
 def plot_label_bars(counts: Counter) -> Path:
     fig, ax = plt.subplots(figsize=(7, 4))
-    labels = list(LABELS)
-    vals = [counts[l] for l in labels]
-    bars = ax.bar(labels, vals, color=[LABEL_COLORS[l] for l in labels])
+    vals = [counts[l] for l in LABELS]
+    bars = ax.bar(list(LABELS), vals, color=[LABEL_COLORS[l] for l in LABELS])
     ax.set_ylabel("Broj primera")
     ax.set_title("Faza 2: broj anotiranih komentara po klasi")
     for b, v in zip(bars, vals):
-        ax.text(b.get_x() + b.get_width() / 2, v + 2, str(v), ha="center", fontweight="bold")
-    # balance line (ideal equal)
+        ax.text(b.get_x() + b.get_width() / 2, v + max(vals) * 0.01, str(v), ha="center", fontweight="bold")
     ideal = sum(vals) / 3
     ax.axhline(ideal, color="#9ca3af", linestyle="--", label=f"idealno uravnoteženo ({ideal:.0f})")
     ax.legend()
@@ -159,13 +226,18 @@ def plot_label_bars(counts: Counter) -> Path:
 
 def plot_length_hist(by_label: dict[str, list[int]]) -> Path:
     fig, ax = plt.subplots(figsize=(8, 4.5))
-    bins = np.arange(0, 55, 3)
+    all_lens = [x for lab in LABELS for x in by_label[lab]]
+    xmax = int(np.percentile(all_lens, 99)) + 5 if all_lens else 50
+    bins = np.arange(0, max(xmax, 20) + 3, 3)
     for lab in LABELS:
+        arr = by_label[lab]
+        if not arr:
+            continue
         ax.hist(
-            by_label[lab],
+            arr,
             bins=bins,
             alpha=0.45,
-            label=f"{lab} (med={np.median(by_label[lab]):.0f})",
+            label=f"{lab} (med={np.median(arr):.0f})",
             color=LABEL_COLORS[lab],
         )
     ax.set_xlabel("Broj tokena (reči) po komentaru")
@@ -178,7 +250,10 @@ def plot_length_hist(by_label: dict[str, list[int]]) -> Path:
 def plot_length_box(by_label: dict[str, list[int]]) -> Path:
     fig, ax = plt.subplots(figsize=(7, 4.2))
     data = [by_label[l] for l in LABELS]
-    bp = ax.boxplot(data, labels=list(LABELS), patch_artist=True)
+    try:
+        bp = ax.boxplot(data, tick_labels=list(LABELS), patch_artist=True)
+    except TypeError:
+        bp = ax.boxplot(data, labels=list(LABELS), patch_artist=True)
     for patch, lab in zip(bp["boxes"], LABELS):
         patch.set_facecolor(LABEL_COLORS[lab])
         patch.set_alpha(0.55)
@@ -187,43 +262,49 @@ def plot_length_box(by_label: dict[str, list[int]]) -> Path:
     return save_fig("05_length_boxplot.png")
 
 
-def plot_posts_phase1(post_counts: dict[str, int]) -> Path:
-    items = sorted(post_counts.items(), key=lambda x: -x[1])
-    shorts = [s for s, _ in items]
-    vals = [v for _, v in items]
-    fig, ax = plt.subplots(figsize=(10, 4.8))
-    ax.bar(range(len(shorts)), vals, color="#0ea5e9")
-    ax.set_xticks(range(len(shorts)))
-    ax.set_xticklabels(shorts, rotation=55, ha="right", fontsize=8)
+def plot_phase1_by_platform(raw_by: dict[str, int], clean_by: dict[str, int]) -> Path:
+    names = [p for p in ("Instagram", "X", "YouTube", "Facebook") if raw_by.get(p) or clean_by.get(p)]
+    x = np.arange(len(names))
+    width = 0.38
+    raw_vals = [raw_by.get(p, 0) for p in names]
+    clean_vals = [clean_by.get(p, 0) for p in names]
+    fig, ax = plt.subplots(figsize=(8.5, 4.5))
+    b1 = ax.bar(x - width / 2, raw_vals, width, label="sirovi (all_texts)", color="#94a3b8")
+    b2 = ax.bar(x + width / 2, clean_vals, width, label="očišćeni (_clean)", color="#0ea5e9")
+    ax.set_xticks(x)
+    ax.set_xticklabels(names)
     ax.set_ylabel("Broj komentara")
-    ax.set_title("Faza 1: komentari po Instagram objavi (unique shortcode)")
-    return save_fig("06_phase1_comments_per_post.png")
+    ax.set_title("Faza 1: prikupljeni komentari po platformi")
+    ax.legend()
+    ymax = max(raw_vals + clean_vals + [1])
+    for bars in (b1, b2):
+        for bar in bars:
+            v = int(bar.get_height())
+            ax.text(bar.get_x() + bar.get_width() / 2, v + ymax * 0.01, str(v), ha="center", va="bottom", fontsize=8)
+    return save_fig("06_phase1_by_platform.png")
 
 
-def plot_annotated_per_url(rows: list[tuple[str, str, str]]) -> Path:
-    # shortcode from url
-    def short(url: str) -> str:
-        m = re.search(r"/p/([^/]+)", url)
-        return m.group(1) if m else url[-12:]
-
-    by_post: dict[str, Counter] = defaultdict(Counter)
+def plot_annotated_by_platform(rows: list[tuple[str, str, str]]) -> Path:
+    by_plat: dict[str, Counter] = defaultdict(Counter)
     for _t, url, lab in rows:
-        by_post[short(url)][lab] += 1
-
-    posts = sorted(by_post.keys(), key=lambda p: -sum(by_post[p].values()))
-    bottoms = np.zeros(len(posts))
-    fig, ax = plt.subplots(figsize=(11, 5))
-    x = np.arange(len(posts))
+        by_plat[detect_platform(url)][lab] += 1
+    names = [p for p in PLATFORMS if sum(by_plat[p].values())]
+    bottoms = np.zeros(len(names))
+    fig, ax = plt.subplots(figsize=(8.5, 4.8))
+    x = np.arange(len(names))
     for lab in LABELS:
-        vals = np.array([by_post[p][lab] for p in posts])
+        vals = np.array([by_plat[p][lab] for p in names], dtype=float)
         ax.bar(x, vals, bottom=bottoms, label=lab, color=LABEL_COLORS[lab])
         bottoms += vals
     ax.set_xticks(x)
-    ax.set_xticklabels(posts, rotation=55, ha="right", fontsize=8)
+    ax.set_xticklabels(names)
     ax.set_ylabel("Broj anotiranih komentara")
-    ax.set_title("Faza 2: anotirani primeri po izvornoj objavi (stacked po klasi)")
+    ax.set_title("Faza 2: anotirani primeri po platformi (stacked po klasi)")
     ax.legend()
-    return save_fig("07_annotated_by_source_stacked.png")
+    for i, p in enumerate(names):
+        total = int(sum(by_plat[p].values()))
+        ax.text(i, total + max(bottoms) * 0.01, str(total), ha="center", va="bottom", fontweight="bold")
+    return save_fig("07_annotated_by_platform_stacked.png")
 
 
 def plot_top_words(by_label_texts: dict[str, list[str]]) -> Path:
@@ -240,93 +321,155 @@ def plot_top_words(by_label_texts: dict[str, list[str]]) -> Path:
     return save_fig("08_top_tokens_by_label.png")
 
 
-def plot_balance_vs_sources(rows: list[tuple[str, str, str]]) -> Path:
-    """Udeo klasa u top 5 izvora."""
-    def short(url: str) -> str:
-        m = re.search(r"/p/([^/]+)", url)
-        return m.group(1) if m else url
-
-    url_counts = Counter(short(u) for _, u, _ in rows)
-    top5 = [u for u, _ in url_counts.most_common(5)]
-    fig, ax = plt.subplots(figsize=(9, 4.5))
-    x = np.arange(len(top5))
+def plot_class_share_by_platform(rows: list[tuple[str, str, str]]) -> Path:
+    names = [p for p in ("Instagram", "X", "YouTube", "Facebook")]
+    fig, ax = plt.subplots(figsize=(9, 4.6))
+    x = np.arange(len(names))
     width = 0.25
     for i, lab in enumerate(LABELS):
         vals = []
-        for p in top5:
-            subset = [r for r in rows if short(r[1]) == p]
+        for p in names:
+            subset = [r for r in rows if detect_platform(r[1]) == p]
             n = len(subset) or 1
             vals.append(100 * sum(1 for r in subset if r[2] == lab) / n)
         ax.bar(x + (i - 1) * width, vals, width, label=lab, color=LABEL_COLORS[lab])
     ax.set_xticks(x)
-    ax.set_xticklabels(top5, rotation=30, ha="right")
+    ax.set_xticklabels(names)
     ax.set_ylabel("Udeo klase (%)")
-    ax.set_title("Faza 2: udeo klasa unutar top-5 izvora")
+    ax.set_title("Faza 2: udeo klasa unutar svake platforme")
     ax.legend()
     ax.set_ylim(0, 100)
-    return save_fig("09_class_share_top_sources.png")
+    return save_fig("09_class_share_by_platform.png")
+
+
+def plot_length_by_platform(rows: list[tuple[str, str, str]]) -> Path:
+    names = [p for p in ("Instagram", "X", "YouTube", "Facebook")]
+    data = []
+    used = []
+    for p in names:
+        lens = [word_count(t) for t, u, _ in rows if detect_platform(u) == p]
+        if lens:
+            data.append(lens)
+            used.append(p)
+    fig, ax = plt.subplots(figsize=(8, 4.4))
+    try:
+        bp = ax.boxplot(data, tick_labels=used, patch_artist=True)
+    except TypeError:
+        bp = ax.boxplot(data, labels=used, patch_artist=True)
+    for patch, p in zip(bp["boxes"], used):
+        patch.set_facecolor(PLATFORM_COLORS[p])
+        patch.set_alpha(0.5)
+    ax.set_ylabel("Broj tokena")
+    ax.set_title("Faza 2: dužina komentara po platformi")
+    return save_fig("10_length_by_platform.png")
+
+
+def md_table(headers: list[str], rows: list[list[str]]) -> list[str]:
+    lines = ["| " + " | ".join(headers) + " |", "|" + "|".join(["---"] * len(headers)) + "|"]
+    for row in rows:
+        lines.append("| " + " | ".join(row) + " |")
+    return lines
 
 
 def main() -> int:
     setup_style()
     rows = load_annotated(PHASE2_ANN / "dataset_all.txt")
+    if not rows:
+        print("Nema primera u dataset_all.txt", flush=True)
+        return 1
+
     label_counts = Counter(r[2] for r in rows)
+    plat_counts = Counter(detect_platform(r[1]) for r in rows)
     by_label_lens: dict[str, list[int]] = {l: [] for l in LABELS}
     by_label_texts: dict[str, list[str]] = {l: [] for l in LABELS}
     for text, _url, lab in rows:
         by_label_lens[lab].append(word_count(text))
         by_label_texts[lab].append(text)
 
-    raw_n = count_lines(PHASE1_IG / "instagram_all_texts.txt")
-    clean_n = count_lines(PHASE1_IG / "instagram_all_texts_clean.txt")
+    raw_by = {
+        "Instagram": count_lines(PHASE1 / "instagram" / "instagram_all_texts.txt"),
+        "X": count_lines(PHASE1 / "x" / "x_all_texts.txt"),
+        "YouTube": count_lines(PHASE1 / "youtube" / "_youtube_all_texts.txt"),
+        "Facebook": count_lines(PHASE1 / "facebook" / "facebook_all_texts.txt"),
+    }
+    clean_by = {
+        "Instagram": count_lines(PHASE1 / "instagram" / "instagram_all_texts_clean.txt"),
+        "X": count_lines(PHASE1 / "x" / "x_all_texts_clean.txt"),
+        "YouTube": count_lines(PHASE1 / "youtube" / "_youtube_all_texts_clean.txt"),
+        "Facebook": count_lines(PHASE1 / "facebook" / "facebook_all_texts_clean.txt")
+        or raw_by["Facebook"],
+    }
+    raw_n = sum(raw_by.values())
+    clean_n = sum(clean_by.values())
     ann_n = len(rows)
-    post_counts = phase1_post_stats()
+
+    posts_ig = count_export_comments(PHASE1 / "instagram", "instagram_")
+    posts_x = count_export_comments(PHASE1 / "x", "x_")
+    posts_yt = count_export_comments(PHASE1 / "youtube", "youtube_")
+    posts_fb = count_export_comments(PHASE1 / "facebook", "facebook_")
+    unique_posts = {
+        "Instagram": len(posts_ig),
+        "X": len(posts_x),
+        "YouTube": len(posts_yt),
+        "Facebook": len(posts_fb),
+    }
+
+    missing_url = sum(1 for r in rows if not r[1] or r[1].upper() == "NEMA")
+    unique_urls = len({r[1] for r in rows if r[1] and r[1].upper() != "NEMA"})
 
     figs = [
         plot_funnel(raw_n, clean_n, ann_n),
-        plot_label_pie(label_counts),
+        plot_label_pie(label_counts, ann_n),
         plot_label_bars(label_counts),
         plot_length_hist(by_label_lens),
         plot_length_box(by_label_lens),
-        plot_posts_phase1(post_counts),
-        plot_annotated_per_url(rows),
+        plot_phase1_by_platform(raw_by, clean_by),
+        plot_annotated_by_platform(rows),
         plot_top_words(by_label_texts),
-        plot_balance_vs_sources(rows),
+        plot_class_share_by_platform(rows),
+        plot_length_by_platform(rows),
     ]
 
-    # length summary table
     length_stats = {}
     for lab in LABELS:
-        arr = np.array(by_label_lens[lab])
+        arr = np.array(by_label_lens[lab], dtype=float)
         length_stats[lab] = {
             "n": int(len(arr)),
-            "mean": float(arr.mean()),
-            "median": float(np.median(arr)),
-            "std": float(arr.std()),
-            "p90": float(np.percentile(arr, 90)),
-            "max": int(arr.max()),
+            "mean": float(arr.mean()) if len(arr) else 0.0,
+            "median": float(np.median(arr)) if len(arr) else 0.0,
+            "std": float(arr.std()) if len(arr) else 0.0,
+            "p90": float(np.percentile(arr, 90)) if len(arr) else 0.0,
+            "max": int(arr.max()) if len(arr) else 0,
         }
 
-    # imbalance ratio
     max_c = max(label_counts.values())
     min_c = min(label_counts.values())
     imbalance = max_c / min_c if min_c else float("inf")
+    biggest = max(LABELS, key=lambda l: label_counts[l])
+    smallest = min(LABELS, key=lambda l: label_counts[l])
+
+    plat_label = {
+        p: {lab: sum(1 for r in rows if detect_platform(r[1]) == p and r[2] == lab) for lab in LABELS}
+        for p in ("Instagram", "X", "YouTube", "Facebook", "Nepoznato")
+    }
 
     summary = {
         "phase1": {
-            "unique_posts": len(post_counts),
-            "comments_in_exports_max_per_post": sum(post_counts.values()),
+            "raw_by_platform": raw_by,
+            "clean_by_platform": clean_by,
+            "unique_posts": unique_posts,
             "all_texts_lines": raw_n,
             "clean_texts_lines": clean_n,
-            "comments_per_post": post_counts,
         },
         "phase2": {
             "annotated_total": ann_n,
             "label_counts": dict(label_counts),
+            "platform_counts": dict(plat_counts),
+            "platform_by_label": plat_label,
             "imbalance_max_over_min": round(imbalance, 2),
             "length_stats_tokens": length_stats,
-            "nema_urls": sum(1 for r in rows if r[1] == "NEMA"),
-            "unique_source_urls": len({r[1] for r in rows}),
+            "missing_urls": missing_url,
+            "unique_source_urls": unique_urls,
         },
         "figures": [p.name for p in figs],
     }
@@ -334,137 +477,168 @@ def main() -> int:
         json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
-    # Markdown report
+    pct_raw = 100 * ann_n / raw_n if raw_n else 0
+    pct_clean = 100 * ann_n / clean_n if clean_n else 0
+    all_lens = [x for lab in LABELS for x in by_label_lens[lab]]
+    med_all = float(np.median(all_lens)) if all_lens else 0
+
     lines = [
         "# Analiza podataka — Faza 1 i Faza 2",
         "",
-        "Izvor: Instagram komentari o studentskim protestima; finalni anotirani skup `dataset_all.txt`.",
+        "Izvor: javni komentari o studentskim protestima u Srbiji "
+        "(Instagram, X, YouTube, Facebook). "
+        "Finalni anotirani skup: `phase2_annotation/annotated/dataset_all.txt`.",
         "",
-        "## 1. Pregled (što smo dobili)",
+        "Grafike su u `phase3_model_training/output/data_analysis/` "
+        "(PNG, spremne za git / izveštaj).",
         "",
-        "| Etapa | Broj |",
-        "|-------|------|",
-        f"| Instagram objave (unique) | **{len(post_counts)}** |",
-        f"| Komentari u exportima (max po objavi) | **{sum(post_counts.values())}** |",
-        f"| `instagram_all_texts.txt` (sa mogućim duplikatima exporta) | **{raw_n}** |",
-        f"| `instagram_all_texts_clean.txt` | **{clean_n}** |",
-        f"| Finalni anotirani skup (Faza 2) | **{ann_n}** |",
+        "## 1. Pregled",
         "",
-        f"Od sirovog ka finalnom: zadržano **{100*ann_n/raw_n:.1f}%** linija iz `all_texts` "
-        f"(ili **{100*ann_n/clean_n:.1f}%** od clean skupa) — očekivano, jer se ručno bira "
+        *md_table(
+            ["Etapa", "Broj"],
+            [
+                ["Sirovi tekstovi (sve platforme, `all_texts`)", f"**{raw_n}**"],
+                ["Očišćeni tekstovi (`_clean`)", f"**{clean_n}**"],
+                ["Finalni anotirani skup (Faza 2)", f"**{ann_n}**"],
+                ["Jedinstvenih URL izvora u Fazi 2", f"**{unique_urls}**"],
+                ["Redova bez URL-a", f"**{missing_url}**"],
+            ],
+        ),
+        "",
+        f"Od sirovog ka finalnom zadržano je **{pct_raw:.1f}%** linija iz `all_texts` "
+        f"(**{pct_clean:.1f}%** od clean skupa). To je očekivano: ručno se bira "
         "kvalitetan, uravnoteženiji podskup za učenje modela.",
         "",
         f"![Funnel](output/data_analysis/{figs[0].name})",
         "",
         "## 2. Faza 1 — prikupljanje",
         "",
-        "- Platforma u ovom izveštaju: **Instagram** (pipe `|` TXT + JSON export po objavi).",
-        f"- Broj jedinstvenih objava: **{len(post_counts)}**.",
-        "- Raspodela komentara po objavi je **jako neuravnotežena** (nekoliko viralnih postova "
-        "daje većinu komentara).",
+        "Komentari su prikupljeni sa četiri platforme. Broj sirovih linija zavisi od "
+        "exporta (mogući duplikati pri ponovnom preuzimanju iste objave).",
         "",
-        f"![Po objavi](output/data_analysis/{figs[5].name})",
+        *md_table(
+            ["Platforma", "Sirovi", "Očišćeni", "Jedinstvene objave (export)"],
+            [
+                [
+                    p,
+                    str(raw_by[p]),
+                    str(clean_by[p]),
+                    str(unique_posts[p]),
+                ]
+                for p in ("Instagram", "X", "YouTube", "Facebook")
+            ],
+        ),
         "",
-        "### Top objave po broju komentara (Faza 1)",
-        "",
-        "| Shortcode | Komentara |",
-        "|-----------|-----------|",
-    ]
-    for short, n in sorted(post_counts.items(), key=lambda x: -x[1])[:10]:
-        lines.append(f"| `{short}` | {n} |")
-
-    lines += [
+        f"![Po platformi](output/data_analysis/{figs[5].name})",
         "",
         "## 3. Faza 2 — anotacija",
         "",
         "### 3.1 Raspodela klasa",
         "",
-        "| Klasa | Broj | Udeo |",
-        "|-------|------|------|",
-    ]
-    for lab in LABELS:
-        c = label_counts[lab]
-        lines.append(f"| `{lab}` | {c} | {100*c/ann_n:.1f}% |")
-    lines += [
+        *md_table(
+            ["Klasa", "Broj", "Udeo"],
+            [
+                [f"`{lab}`", str(label_counts[lab]), f"{100 * label_counts[lab] / ann_n:.1f}%"]
+                for lab in LABELS
+            ],
+        ),
         "",
         f"**Neuravnoteženost** (max/min): **{imbalance:.2f}×** "
-        f"(`PROTIV-VLASTI` je najveća klasa). "
+        f"(najveća `{biggest}`, najmanja `{smallest}`). "
         "Zato u Fazi 3 koristimo **macro-F1**, ne samo accuracy.",
         "",
         f"![Pie](output/data_analysis/{figs[1].name})",
         "",
         f"![Bars](output/data_analysis/{figs[2].name})",
         "",
-        "### 3.2 Dužina komentara (broj tokena)",
+        "### 3.2 Raspodela po platformi",
         "",
-        "| Klasa | n | prosek | medijana | std | p90 | max |",
-        "|-------|---|--------|----------|-----|-----|-----|",
-    ]
-    for lab in LABELS:
-        s = length_stats[lab]
-        lines.append(
-            f"| `{lab}` | {s['n']} | {s['mean']:.1f} | {s['median']:.0f} | "
-            f"{s['std']:.1f} | {s['p90']:.0f} | {s['max']} |"
-        )
-    lines += [
+        *md_table(
+            ["Platforma", "n", "NEUTRAL", "ZA-VLAST", "PROTIV-VLASTI", "Udeo u skupu"],
+            [
+                [
+                    p,
+                    str(plat_counts.get(p, 0)),
+                    str(plat_label[p]["NEUTRAL"]),
+                    str(plat_label[p]["ZA-VLAST"]),
+                    str(plat_label[p]["PROTIV-VLASTI"]),
+                    f"{100 * plat_counts.get(p, 0) / ann_n:.1f}%",
+                ]
+                for p in ("Instagram", "X", "YouTube", "Facebook", "Nepoznato")
+                if plat_counts.get(p, 0)
+            ],
+        ),
         "",
-        "Komentari su uglavnom **kratki** (medijana ~8–10 tokena) — tipično za društvene mreže. "
-        "Klase su slične po dužini; `PROTIV-VLASTI` je malo kraća u proseku.",
+        f"![Stacked platform](output/data_analysis/{figs[6].name})",
+        "",
+        f"![Share platform](output/data_analysis/{figs[8].name})",
+        "",
+        "### 3.3 Dužina komentara (broj tokena)",
+        "",
+        *md_table(
+            ["Klasa", "n", "prosek", "medijana", "std", "p90", "max"],
+            [
+                [
+                    f"`{lab}`",
+                    str(s["n"]),
+                    f"{s['mean']:.1f}",
+                    f"{s['median']:.0f}",
+                    f"{s['std']:.1f}",
+                    f"{s['p90']:.0f}",
+                    str(s["max"]),
+                ]
+                for lab, s in ((lab, length_stats[lab]) for lab in LABELS)
+            ],
+        ),
+        "",
+        f"Komentari su uglavnom **kratki** (ukupna medijana ≈ {med_all:.0f} tokena) — "
+        "tipično za društvene mreže. Klase su slične po dužini.",
         "",
         f"![Hist](output/data_analysis/{figs[3].name})",
         "",
         f"![Box](output/data_analysis/{figs[4].name})",
         "",
-        "### 3.3 Izvori (URL / objava)",
-        "",
-        f"- Jedinstvenih URL izvora u anotiranom skupu: **{len({r[1] for r in rows})}**",
-        f"- Redova sa `NEMA` URL: **{sum(1 for r in rows if r[1]=='NEMA')}**",
-        "",
-        "Anotirani podskup **ne prati** proporciju sirovih komentara 1:1 — biraju se "
-        "primeri po klasama. Ipak, i u finalu dominiraju neke objave:",
-        "",
-        f"![Stacked](output/data_analysis/{figs[6].name})",
-        "",
-        f"![Share](output/data_analysis/{figs[8].name})",
+        f"![Len platform](output/data_analysis/{figs[9].name})",
         "",
         "### 3.4 Leksički signal (top tokeni)",
         "",
-        "Najčešći tokeni (grubo, bez stop-reči) daju uvid u to šta model može da „nauči“ "
-        "preko bag-of-words / TF-IDF:",
+        "Najčešći tokeni (bez stop-reči) pokazuju šta bag-of-words / TF-IDF baseline "
+        "može da nauči po klasama.",
         "",
         f"![Tokens](output/data_analysis/{figs[7].name})",
         "",
-        "## 4. Poređenje Faza 1 vs Faza 2",
+        "## 4. Zaključak za modele (Faza 3)",
         "",
-        "| Dimenzija | Faza 1 | Faza 2 |",
-        "|-----------|--------|--------|",
-        f"| Cilj | što više javnih komentara | kvalitetan **označen** skup |",
-        f"| Obim | ~{sum(post_counts.values())} (export) / {raw_n} linija all | **{ann_n}** primera |",
-        f"| Oznake | nema | 3 klase |",
-        f"| URL metapodatak | u export TXT/JSON | u annotated fajlovima |",
-        f"| Balans klasa | N/A | neuravnotežen ({imbalance:.2f}×) |",
-        "",
-        "**Zaključak za modele (Faza 3):**",
-        "",
-        "1. Skup je mali (500) → baseline i enkoder mogu overfittovati; CV je obavezna.",
-        "2. Klasa `NEUTRAL` je najmanja i često najteža (nejasan signal).",
-        "3. Kratki tekstovi → n-grami i kontekst enkodera pomažu više od dugih dokumenata.",
-        "4. Domacija pojedinih objava → oprez od „curenja“ stila jednog thread-a u train/test "
-        "(stratifikacija po klasi pomaže, ali ne rešava source bias potpuno).",
+        f"1. Skup ima **{ann_n}** primera — dovoljno za baseline; enkoder i dalje treba "
+        "**stratifikovanu CV** da se smanji overfitting.",
+        f"2. Klasa `{smallest}` je najmanja; macro-F1 je prava glavna metrika.",
+        "3. Kratki tekstovi → n-grami (baseline) i kontekst enkodera pomažu više od "
+        "modela rađenih za duge dokumente.",
+        "4. Četiri platforme unose različit žargon i dužinu; model treba da generalizuje "
+        "preko izvora, ne samo unutar jednog threada.",
         "",
         "## 5. Fajlovi grafika",
         "",
     ]
     for fig in figs:
         lines.append(f"- `output/data_analysis/{fig.name}`")
-    lines.append("")
-    lines.append(f"Numerički rezime: `output/data_analysis/summary.json`")
-    lines.append("")
-
+    lines += [
+        "",
+        "Numerički rezime: `output/data_analysis/summary.json`",
+        "",
+        "Regenerisanje:",
+        "",
+        "```bash",
+        "cd phase3_model_training",
+        "python analyze_phase1_phase2.py",
+        "```",
+        "",
+    ]
     REPORT.write_text("\n".join(lines), encoding="utf-8")
     print(f"Grafika: {OUT_DIR}")
     print(f"Izvestaj: {REPORT}")
     print(json.dumps(summary["phase2"]["label_counts"], ensure_ascii=False))
+    print(json.dumps(summary["phase2"]["platform_counts"], ensure_ascii=False))
     return 0
 
 

@@ -222,8 +222,7 @@ phase1_data_collection/sessions/
 phase1_data_collection/sessions/**/*.txt
 phase1_data_collection/sessions/**/*.json
 
-<<<<<<< HEAD
-# Phase 3 — veliki modeli / scratch
+# Phase 3 — veliki modeli / scratch (checkpoint-i su preveliki za git)
 phase3_model_training/baseline/output/baseline_model.joblib
 phase3_model_training/encoder/output/encoder_best/
 phase3_model_training/encoder/output/_encoder_scratch/
@@ -234,11 +233,10 @@ phase3_model_training/output/baseline_model.joblib
 phase3_model_training/output/encoder_best/
 phase3_model_training/output/_encoder_scratch/
 phase3_model_training/output/decoder_cache/
-=======
-# Phase 3 model training — regenerable outputs, not source (encoder checkpoints
-# especially can reach 1GB+, far too large for git)
-phase3_model_training/baseline/output/
-phase3_model_training/encoder/output/
 phase3_model_training/cache_dir/
 phase3_model_training/runs/
->>>>>>> b048c7acb13a4546dd4be5ae07c6fbd5dcbff0e4
+phase3_model_training/encoder/cache_dir/
+phase3_model_training/encoder/runs/
+
+# Grafike za izveštaj (PNG + summary.json) idu na git:
+# phase3_model_training/output/data_analysis/

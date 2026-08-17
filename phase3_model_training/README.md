@@ -23,29 +23,56 @@ pip install -r phase3_model_training/requirements.txt
 
 Komande ispod pokreći iz `phase3_model_training/`.
 
-## Baseline
+Dataset: `../phase2_annotation/annotated/dataset_all.txt` (učitava se automatski).
+
+## Analiza podataka (grafike za izveštaj)
 
 ```bash
-python baseline/train_baseline.py --quick
-python baseline/train_baseline.py
-python baseline/train_baseline.py --models nb --normalize stem --weightings tf idf tfidf
-python baseline/infer.py -t "Pumpaj!"
-python baseline/run_demo_infer.py
+python analyze_phase1_phase2.py
 ```
 
-Izlaz: `baseline/output/`
+Izlaz: `output/data_analysis/*.png` + `ANALIZA_FAZA1_FAZA2.md`
+
+## Baseline
+
+Na **drugom računaru**: `git pull`, pa iz korena projekta:
+
+```bash
+pip install -r phase3_model_training/requirements.txt
+cd phase3_model_training
+
+# 1) brzi test da sve radi (~minut)
+python baseline/train_baseline.py --quick
+
+# 2) puni eksperiment (LR + SVM + NB, TF/IDF/TF-IDF, stem/lema, 10-fold)
+python baseline/train_baseline.py
+```
+
+Izlaz: `baseline/output/` (`baseline_results.json`, `.txt`, i `.joblib` model — joblib se ne commituje).
+
+Inferenca:
+
+```bash
+python baseline/infer_baseline.py -t "Pumpaj!"
+```
 
 ## Enkoder (Simple Transformers)
 
 **Važno (Windows + torch 2.0):** ne instaliraj `transformers` 5.x — koristi `requirements.txt`.
 
+Pokreni **posle** baseline-a, iz `phase3_model_training/`:
+
 ```bash
+# 1) smoke test (1 epoha, 2 folda, jedan model) — da vidiš da torch radi
 python encoder/train_encoder.py --quick
+
+# 2) puni eksperiment (BERTić + mBERT, 2/3/4 epohe, 10-fold CV)
 python encoder/train_encoder.py
-python encoder/infer_encoder.py -t "Pumpaj!"
 ```
 
-Izlaz: `encoder/output/`
+Bez GPU-a je sporo; za puni encoder bolje Colab / mašina sa NVIDIA karticom.
+
+Izlaz: `encoder/output/` (rezultati JSON/TXT da; folder `encoder_best/` je prevelik za git).
 
 ## Dekoder (prompting)
 
