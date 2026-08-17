@@ -375,6 +375,14 @@ def main() -> int:
 
     print(f"\nRezultati: {args.output}")
     print(f"Izvestaji: {report_path}")
+
+    try:
+        from report_baseline import generate as write_baseline_report
+
+        print("\nGenerisem statistiku za izvestaj ...", flush=True)
+        write_baseline_report(args.output)
+    except Exception as exc:
+        print(f"Upozorenje: izvestaj nije napravljen ({exc})", flush=True)
     return 0
 
 

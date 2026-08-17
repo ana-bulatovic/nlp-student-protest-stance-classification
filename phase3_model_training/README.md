@@ -50,6 +50,17 @@ python baseline/train_baseline.py
 
 Izlaz: `baseline/output/` (`baseline_results.json`, `.txt`, i `.joblib` model — joblib se ne commituje).
 
+Posle punog treninga skripta sama pravi statistiku za izveštaj:
+
+- `BASELINE_IZVESTAJ.md`
+- `output/baseline_analysis/*.png`
+
+Ručno (ako JSON već postoji):
+
+```bash
+python baseline/report_baseline.py
+```
+
 Inferenca:
 
 ```bash
