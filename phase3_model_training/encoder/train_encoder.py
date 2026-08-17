@@ -21,6 +21,8 @@ from pathlib import Path
 # Na Windows+CPU: sklearn PRE torch/transformers može da sruši proces (0xC0000005).
 # Zato prvo st_compat (učitava torch), pa tek onda sklearn.
 os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
+os.environ.setdefault("WANDB_DISABLED", "true")
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PHASE3_DIR = SCRIPT_DIR.parent
@@ -99,6 +101,11 @@ def parse_args() -> argparse.Namespace:
         help="Smoke test: 2 folda, 1 epoha, jedan model",
     )
     parser.add_argument("--no-save-model", action="store_true")
+    parser.add_argument(
+        "--fp16",
+        action="store_true",
+        help="Mešana preciznost (brže; na Windows+CUDA često ruši proces).",
+    )
     return parser.parse_args()
 
 
@@ -127,6 +134,7 @@ def make_args(
     lr: float,
     max_length: int,
     seed: int,
+    fp16: bool = False,
 ):
     st_compat.apply()
     from simpletransformers.classification import ClassificationArgs
@@ -150,7 +158,15 @@ def make_args(
     args.output_dir = str(output_dir)
     args.best_model_dir = str(output_dir / "best")
     args.labels_list = list(LABELS)
-    args.silent = True
+    args.silent = False
+    args.logging_steps = 50
+    # Windows+CUDA: fp16/wandb često ugase proces bez Python traceback-a
+    args.fp16 = fp16
+    args.wandb_project = None
+    if hasattr(args, "dataloader_num_workers"):
+        args.dataloader_num_workers = 0
+    if hasattr(args, "process_count"):
+        args.process_count = 1
     return args
 
 
@@ -163,12 +179,13 @@ def build_model(
     max_length: int,
     seed: int,
     use_cuda: bool,
+    fp16: bool = False,
 ):
     st_compat.apply()
     from simpletransformers.classification import ClassificationModel
 
     preset = MODEL_PRESETS[model_key]
-    args = make_args(output_dir, epochs, batch_size, lr, max_length, seed)
+    args = make_args(output_dir, epochs, batch_size, lr, max_length, seed, fp16=fp16)
     return ClassificationModel(
         preset["model_type"],
         preset["model_name"],
@@ -190,17 +207,24 @@ def train_one_fold(
     seed: int,
     work_dir: Path,
     use_cuda: bool,
+    fp16: bool = False,
 ) -> list[str]:
     if work_dir.exists():
         shutil.rmtree(work_dir, ignore_errors=True)
     work_dir.mkdir(parents=True, exist_ok=True)
 
+    print("    ucitavam model ...", flush=True)
     model = build_model(
-        model_key, work_dir, epochs, batch_size, lr, max_length, seed, use_cuda
+        model_key, work_dir, epochs, batch_size, lr, max_length, seed, use_cuda, fp16=fp16
     )
     train_df = pd.DataFrame({"text": train_texts, "labels": train_labels})
-    # Simple Transformers: nekoliko linija za trening
-    model.train_model(train_df)
+    print(f"    treniram {len(train_df)} primera, {epochs} epoha ...", flush=True)
+    try:
+        model.train_model(train_df)
+    except Exception:
+        print("    GRESKA u train_model (traceback ispod):", flush=True)
+        raise
+    print("    predikcija ...", flush=True)
 
     preds, _raw = model.predict(test_texts)
     # preds mogu biti string (labels_list) ili int
@@ -225,6 +249,7 @@ def evaluate_encoder_config(
     seed: int,
     scratch_dir: Path,
     use_cuda: bool,
+    fp16: bool = False,
 ) -> tuple[EncoderResult, str]:
     y = np.array(labels)
     skf = StratifiedKFold(n_splits=folds, shuffle=True, random_state=seed)
@@ -234,7 +259,13 @@ def evaluate_encoder_config(
     model_name = MODEL_PRESETS[model_key]["model_name"]
 
     for fold_i, (train_idx, test_idx) in enumerate(skf.split(texts, y), 1):
-        print(f"  fold {fold_i}/{folds} ...")
+        print(f"  fold {fold_i}/{folds} ...", flush=True)
+        if fold_i == 1:
+            print(
+                "    (prvi fold skida model sa Hugging Face ako nije u kesu, "
+                "pa trenira — to moze potrajati; nije crash)",
+                flush=True,
+            )
         train_texts = [texts[i] for i in train_idx]
         train_labels = [labels[i] for i in train_idx]
         test_texts = [texts[i] for i in test_idx]
@@ -253,6 +284,7 @@ def evaluate_encoder_config(
             seed=seed,
             work_dir=work,
             use_cuda=use_cuda,
+            fp16=fp16,
         )
         fold_macro = float(
             f1_score(
@@ -290,13 +322,14 @@ def train_full_and_save(
     out_dir: Path,
     use_cuda: bool,
     best_meta: dict,
+    fp16: bool = False,
 ) -> None:
     if out_dir.exists():
         shutil.rmtree(out_dir, ignore_errors=True)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     model = build_model(
-        model_key, out_dir, epochs, batch_size, lr, max_length, seed, use_cuda
+        model_key, out_dir, epochs, batch_size, lr, max_length, seed, use_cuda, fp16=fp16
     )
     train_df = pd.DataFrame({"text": texts, "labels": labels})
     model.train_model(train_df)
@@ -361,6 +394,7 @@ def main() -> int:
     print("Framework: Simple Transformers (ClassificationModel)")
     if use_cuda:
         print(f"GPU: {torch.cuda.get_device_name(0)}", flush=True)
+        print("fp16: iskljucen (stabilnije na Windows). Ukljuci sa --fp16 ako zelis.", flush=True)
     else:
         print(
             "Upozorenje: PyTorch ne vidi CUDA, iako racunar mozda ima NVIDIA GPU.\n"
@@ -418,6 +452,7 @@ def main() -> int:
                 seed=args.seed,
                 scratch_dir=scratch,
                 use_cuda=use_cuda,
+                fp16=args.fp16,
             )
             print(
                 f"acc={result.accuracy:.4f}  macro_f1={result.macro_f1:.4f}  "
@@ -472,6 +507,7 @@ def main() -> int:
             out_dir=args.model_dir,
             use_cuda=use_cuda,
             best_meta=best,
+            fp16=args.fp16,
         )
         print(f"Model za inferencu: {args.model_dir}")
 
