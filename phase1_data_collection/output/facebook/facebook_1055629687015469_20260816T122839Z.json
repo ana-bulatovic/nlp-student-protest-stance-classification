@@ -1,0 +1,75 @@
+{
+  "source": "facebook",
+  "post_url": "https://www.facebook.com/reel/1055629687015469",
+  "post_ref": "1055629687015469",
+  "fetched_at": "20260816T122839Z",
+  "comment_count": 6,
+  "comments": [
+    {
+      "id": "1055629687015469_0",
+      "source": "facebook",
+      "post_url": "https://www.facebook.com/reel/1055629687015469",
+      "post_id": "1055629687015469",
+      "text": "Опрости ми Господе, посетила сам овај прелепи Манастир пре двадесетак година, кад је изгледао скромно и препуно двориште више десетинама хиљада верника почев од поноћне литургије до јутра и сви дисали једним дахом. ..тада је био лепши....",
+      "author": "Branka Branka",
+      "created_at": "6 days ago",
+      "is_reply": false,
+      "parent_comment_id": null
+    },
+    {
+      "id": "1055629687015469_1",
+      "source": "facebook",
+      "post_url": "https://www.facebook.com/reel/1055629687015469",
+      "post_id": "1055629687015469",
+      "text": "Manastir ĐUNIS - prelepo",
+      "author": "Radica Vidosavljevic",
+      "created_at": "5 weeks ago",
+      "is_reply": false,
+      "parent_comment_id": null
+    },
+    {
+      "id": "1055629687015469_2",
+      "source": "facebook",
+      "post_url": "https://www.facebook.com/reel/1055629687015469",
+      "post_id": "1055629687015469",
+      "text": "У Риму је боље или по свету где одржавају катедрале и њима важне црквене објекте али важно је да се пљује по свему што је лепо и уређено код нас . Вера није умањена са оваквим рајем за очи и пријатном окружењу . Мир и спокој души не квари лепота , изгледа смо постали кретени од народа .",
+      "author": "Ljilja Mihailovic",
+      "created_at": "5 days ago",
+      "is_reply": false,
+      "parent_comment_id": null
+    },
+    {
+      "id": "1055629687015469_3",
+      "source": "facebook",
+      "post_url": "https://www.facebook.com/reel/1055629687015469",
+      "post_id": "1055629687015469",
+      "text": "Raj na zemlji.Treba otici uz Boziju pomoc pomoliti se.",
+      "author": "Gradimirka Paca Mladenovic",
+      "created_at": "6 days ago",
+      "is_reply": false,
+      "parent_comment_id": null
+    },
+    {
+      "id": "1055629687015469_4",
+      "source": "facebook",
+      "post_url": "https://www.facebook.com/reel/1055629687015469",
+      "post_id": "1055629687015469",
+      "text": "Слава Господу Богу и Пресветој Богородице Мајци Божјој.",
+      "author": "Dragan Radulovic",
+      "created_at": "6 days ago",
+      "is_reply": false,
+      "parent_comment_id": null
+    },
+    {
+      "id": "1055629687015469_5",
+      "source": "facebook",
+      "post_url": "https://www.facebook.com/reel/1055629687015469",
+      "post_id": "1055629687015469",
+      "text": "Од детињства долазим, кад могу Ђунис .... још кад је била само стара црквица !",
+      "author": "Goran Vukojevic",
+      "created_at": "6 days ago",
+      "is_reply": false,
+      "parent_comment_id": null
+    }
+  ]
+}

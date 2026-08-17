@@ -85,7 +85,6 @@ def make_classifier(model: str):
         return LogisticRegression(
             max_iter=2000,
             solver="lbfgs",
-            multi_class="auto",
             random_state=42,
         )
     if model == "svm":

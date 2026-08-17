@@ -133,9 +133,10 @@ python download_instagram_comments.py --sleep 8 --request-sleep 2
 1. Log in to [tiktok.com](https://www.tiktok.com) in Chrome
 2. Press F12 → Application → Cookies → `tiktok.com`
 3. Copy the value of `ms_token`
-4. Set env: `TIKTOK_MS_TOKEN=...` or pass `--ms-token`
+4. Save it to `sessions/tiktok/ms_token.txt` (one line, no prefix) — or set env `TIKTOK_MS_TOKEN=...` / pass `--ms-token`
 
 **Source of comments:** TikTok comment API, accessed through an automated browser session.
+Only inline "preview" replies TikTok returns with a comment are collected; deeper reply threads are not paginated (no `--no-replies` needed unless you want to drop even those).
 
 **Saved to:** `output/tiktok/`
 

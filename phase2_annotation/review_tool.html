@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Stance dataset review / trim tool</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f5f7;
+    --card-bg: #ffffff;
+    --text: #1a1a1a;
+    --muted: #6b6b6b;
+    --border: #e0e0e0;
+    --accent: #2563eb;
+    --drop: #d64545;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17181c;
+      --card-bg: #24262b;
+      --text: #ececec;
+      --muted: #9a9a9a;
+      --border: #35373d;
+      --accent: #5b8def;
+      --drop: #e26565;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 24px 16px 60px;
+  }
+  h1 { font-size: 18px; font-weight: 600; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 20px; text-align: center; max-width: 600px; }
+  .panel {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    width: 100%;
+    max-width: 720px;
+  }
+  #loader { text-align: center; }
+  #loader input { margin-top: 12px; }
+  #workspace { display: none; }
+
+  .counts-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 18px;
+  }
+  .counts-table th, .counts-table td {
+    text-align: right;
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .counts-table th:first-child, .counts-table td:first-child { text-align: left; }
+  .counts-table th { color: var(--muted); font-weight: 600; }
+  .delta-neg { color: var(--drop); }
+
+  .filter-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    font-size: 13px;
+  }
+  select {
+    background: var(--card-bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 8px;
+  }
+
+  .progress-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .progress-bar {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border);
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.15s;
+  }
+
+  .comment-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 28px 24px;
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    transition: opacity 0.1s;
+  }
+  .comment-card.dropped { opacity: 0.4; }
+  .comment-label-badge {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+  .comment-text {
+    font-size: 20px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .comment-url { text-align: center; margin-top: 10px; font-size: 12px; }
+  .comment-url a { color: var(--muted); text-decoration: none; }
+  .comment-url a:hover { text-decoration: underline; }
+  .status-line {
+    text-align: center;
+    margin-top: 14px;
+    font-size: 13px;
+    min-height: 18px;
+    font-weight: 600;
+  }
+  .status-keep { color: var(--accent); }
+  .status-drop { color: var(--drop); }
+
+  .buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 22px;
+  }
+  button {
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 12px 8px;
+    font-size: 13px;
+    cursor: pointer;
+    line-height: 1.3;
+  }
+  button:hover { border-color: var(--accent); }
+  button b { display: block; font-size: 16px; margin-bottom: 2px; }
+  .nav-row { display: flex; justify-content: space-between; margin-top: 18px; }
+  .nav-row button { flex: 1; margin: 0 4px; }
+  .footer-row { display: flex; justify-content: center; margin-top: 20px; }
+  #exportBtn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+  <h1>Stance dataset review / trim tool</h1>
+  <div class="subtitle">Load an already-labeled text|url|label file, filter to one class at a time, and mark comments to drop when you have more than you need.</div>
+
+  <div class="panel" id="loader">
+    <p>Select your labeled file (e.g. <code>youtube_final_annotated.txt</code>):</p>
+    <input type="file" id="fileInput" accept=".txt,.csv">
+  </div>
+
+  <div class="panel" id="workspace">
+    <table class="counts-table" id="countsTable"></table>
+
+    <div class="filter-row">
+      <label for="classFilter">Review class:</label>
+      <select id="classFilter"></select>
+    </div>
+
+    <div class="progress-row">
+      <span id="progressText">0 / 0</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+    <div class="comment-card" id="commentCard">
+      <div class="comment-label-badge" id="commentLabel"></div>
+      <div class="comment-text" id="commentText"></div>
+    </div>
+    <div class="comment-url"><a id="commentUrl" href="#" target="_blank" rel="noopener"></a></div>
+    <div class="status-line" id="statusLine"></div>
+
+    <div class="buttons">
+      <button data-action="keep"><b>K / Enter</b>keep</button>
+      <button data-action="drop"><b>⌫</b>drop</button>
+    </div>
+
+    <div class="nav-row">
+      <button id="prevBtn">← prev (Left arrow)</button>
+      <button id="nextBtn">next (Right arrow) →</button>
+    </div>
+
+    <div class="footer-row">
+      <button id="exportBtn">Export trimmed data (.txt)</button>
+    </div>
+  </div>
+
+<script>
+(function () {
+  let rows = [];        // [{text, url, label}] — all rows from the loaded file, original order
+  let keep = [];         // parallel array: boolean, true = keep in export
+  let originalCounts = {}; // frozen at load time
+  let filterClass = "ALL";
+  let filteredIdx = [];  // indices into `rows` matching current filter
+  let posInFilter = 0;
+  let storageKey = null;
+
+  const el = (id) => document.getElementById(id);
+
+  function parseCSV(text, delimiter) {
+    const rowsOut = [];
+    let row = [];
+    let field = "";
+    let inQuotes = false;
+    let i = 0;
+    const len = text.length;
+    while (i < len) {
+      const c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
+          inQuotes = false; i++; continue;
+        }
+        field += c; i++; continue;
+      } else {
+        if (c === '"') { inQuotes = true; i++; continue; }
+        if (c === delimiter) { row.push(field); field = ""; i++; continue; }
+        if (c === "\r") { i++; continue; }
+        if (c === "\n") { row.push(field); rowsOut.push(row); row = []; field = ""; i++; continue; }
+        field += c; i++; continue;
+      }
+    }
+    if (field.length > 0 || row.length > 0) { row.push(field); rowsOut.push(row); }
+    return rowsOut;
+  }
+
+  function csvField(value) {
+    if (value == null) value = "";
+    if (value.includes("|") || value.includes('"') || value.includes("\n") || value.includes("\r")) {
+      return '"' + value.replace(/"/g, '""') + '"';
+    }
+    return value;
+  }
+
+  el("fileInput").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => loadFromText(reader.result, file.name);
+    reader.readAsText(file, "utf-8");
+  });
+
+  function loadFromText(text, fileName) {
+    const parsed = parseCSV(text, "|").filter(r => r.length > 1 && r.some(v => v !== ""));
+    let header = parsed[0].map(h => h.trim().toLowerCase());
+    let dataRows = parsed;
+    let textIdx = 0, urlIdx = 1, labelIdx = 2;
+    if (header.includes("text")) {
+      textIdx = header.indexOf("text");
+      urlIdx = header.indexOf("url");
+      labelIdx = header.indexOf("label");
+      dataRows = parsed.slice(1);
+    }
+    rows = dataRows
+      .map(r => ({
+        text: (r[textIdx] || "").trim(),
+        url: (urlIdx >= 0 ? (r[urlIdx] || "").trim() : ""),
+        label: (labelIdx >= 0 ? (r[labelIdx] || "").trim() : ""),
+      }))
+      .filter(r => r.text.length > 0 && r.label.length > 0);
+
+    storageKey = "stance-review:" + fileName + ":" + rows.length;
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      const parsedSave = JSON.parse(saved);
+      keep = parsedSave.keep;
+      filterClass = parsedSave.filterClass || "ALL";
+      posInFilter = parsedSave.posInFilter || 0;
+    } else {
+      keep = new Array(rows.length).fill(true);
+      filterClass = "ALL";
+      posInFilter = 0;
+    }
+
+    originalCounts = countBy(rows.map((r, i) => r.label));
+
+    const classes = Array.from(new Set(rows.map(r => r.label))).sort();
+    el("classFilter").innerHTML =
+      '<option value="ALL">All classes</option>' +
+      classes.map(c => `<option value="${c}">${c}</option>`).join("");
+    el("classFilter").value = filterClass;
+
+    el("loader").style.display = "none";
+    el("workspace").style.display = "block";
+
+    applyFilter();
+  }
+
+  function countBy(labels) {
+    const counts = {};
+    labels.forEach(l => { counts[l] = (counts[l] || 0) + 1; });
+    return counts;
+  }
+
+  function applyFilter() {
+    filteredIdx = rows
+      .map((r, i) => i)
+      .filter(i => filterClass === "ALL" || rows[i].label === filterClass);
+    posInFilter = Math.max(0, Math.min(posInFilter, filteredIdx.length - 1));
+    render();
+  }
+
+  function saveProgress() {
+    if (!storageKey) return;
+    localStorage.setItem(storageKey, JSON.stringify({ keep, filterClass, posInFilter }));
+  }
+
+  function currentIndex() {
+    return filteredIdx[posInFilter];
+  }
+
+  function render() {
+    renderCounts();
+
+    if (filteredIdx.length === 0) {
+      el("commentText").textContent = "(no comments in this class)";
+      el("commentLabel").textContent = "";
+      el("commentUrl").style.display = "none";
+      el("statusLine").textContent = "";
+      el("progressText").textContent = "0 / 0";
+      el("progressFill").style.width = "0%";
+      return;
+    }
+
+    const idx = currentIndex();
+    const row = rows[idx];
+    el("commentText").textContent = row.text;
+    el("commentLabel").textContent = row.label;
+    if (row.url) {
+      el("commentUrl").textContent = row.url;
+      el("commentUrl").href = row.url;
+      el("commentUrl").style.display = "inline";
+    } else {
+      el("commentUrl").style.display = "none";
+    }
+
+    const isKept = keep[idx];
+    el("commentCard").classList.toggle("dropped", !isKept);
+    el("statusLine").textContent = isKept ? "keeping" : "dropping";
+    el("statusLine").className = "status-line " + (isKept ? "status-keep" : "status-drop");
+
+    el("progressText").textContent = (posInFilter + 1) + " / " + filteredIdx.length +
+      (filterClass !== "ALL" ? " (" + filterClass + ")" : "");
+    el("progressFill").style.width = ((posInFilter + 1) / filteredIdx.length * 100).toFixed(1) + "%";
+  }
+
+  function renderCounts() {
+    const keptLabels = rows.filter((r, i) => keep[i]).map(r => r.label);
+    const newCounts = countBy(keptLabels);
+    const classes = Object.keys(originalCounts).sort();
+    let html = "<tr><th>class</th><th>original</th><th>current</th><th>dropped</th></tr>";
+    let totalOrig = 0, totalNew = 0;
+    classes.forEach(c => {
+      const o = originalCounts[c] || 0;
+      const n = newCounts[c] || 0;
+      totalOrig += o; totalNew += n;
+      const droppedCls = (o - n) > 0 ? ' class="delta-neg"' : "";
+      html += `<tr><td>${c}</td><td>${o}</td><td>${n}</td><td${droppedCls}>${o - n}</td></tr>`;
+    });
+    html += `<tr><td><b>total</b></td><td><b>${totalOrig}</b></td><td><b>${totalNew}</b></td><td><b>${totalOrig - totalNew}</b></td></tr>`;
+    el("countsTable").innerHTML = html;
+  }
+
+  function setKeep(value) {
+    if (filteredIdx.length === 0) return;
+    keep[currentIndex()] = value;
+    saveProgress();
+    go(1);
+  }
+
+  function go(delta) {
+    if (filteredIdx.length === 0) return;
+    posInFilter = Math.max(0, Math.min(filteredIdx.length - 1, posInFilter + delta));
+    saveProgress();
+    render();
+  }
+
+  el("classFilter").addEventListener("change", () => {
+    filterClass = el("classFilter").value;
+    posInFilter = 0;
+    saveProgress();
+    applyFilter();
+  });
+
+  document.querySelectorAll(".buttons button").forEach(btn => {
+    btn.addEventListener("click", () => setKeep(btn.dataset.action === "keep"));
+  });
+  el("prevBtn").addEventListener("click", () => go(-1));
+  el("nextBtn").addEventListener("click", () => go(1));
+
+  document.addEventListener("keydown", (e) => {
+    if (rows.length === 0) return;
+    if (e.key === "k" || e.key === "K" || e.key === "Enter") setKeep(true);
+    else if (e.key === "Backspace" || e.key === "Delete") { e.preventDefault(); setKeep(false); }
+    else if (e.key === "ArrowLeft") go(-1);
+    else if (e.key === "ArrowRight") go(1);
+  });
+
+  el("exportBtn").addEventListener("click", () => {
+    const lines = ["text|url|label"];
+    rows.forEach((row, i) => {
+      if (!keep[i]) return;
+      lines.push(`${csvField(row.text)}|${csvField(row.url)}|${row.label}`);
+    });
+    const blob = new Blob([lines.join("\n") + "\n"], { type: "text/plain;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "youtube_final_trimmed.txt";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+})();
+</script>
+</body>
+</html>
