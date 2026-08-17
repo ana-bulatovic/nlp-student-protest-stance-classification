@@ -359,10 +359,17 @@ def main() -> int:
     use_cuda = torch.cuda.is_available()
     print(f"Uredjaj: {'cuda' if use_cuda else 'cpu'}")
     print("Framework: Simple Transformers (ClassificationModel)")
-    if not use_cuda:
+    if use_cuda:
+        print(f"GPU: {torch.cuda.get_device_name(0)}", flush=True)
+    else:
         print(
-            "Upozorenje: nema GPU — fine-tuning ce biti spor. "
-            "Za puni eksperiment preporucen je Google Colab / Azure.",
+            "Upozorenje: PyTorch ne vidi CUDA, iako racunar mozda ima NVIDIA GPU.\n"
+            f"  torch={torch.__version__}  torch.version.cuda={torch.version.cuda}\n"
+            "  pip install torch sa PyPI skoro uvek stavi CPU build.\n"
+            "  Provera: python -c \"import torch; print(torch.__version__, torch.cuda.is_available())\"\n"
+            "  Popravka (NVIDIA, CUDA 12.1):\n"
+            "    pip uninstall torch torchvision torchaudio -y\n"
+            "    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121",
             flush=True,
         )
 

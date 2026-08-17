@@ -1,6 +1,10 @@
 # Enkoder (Simple Transformers)
 # NAPOMENA: ne instaliraj transformers 5.x sa torch 2.0 (LRScheduler greška).
 # Koristi: pip install -r phase3_model_training/requirements.txt
+#
+# GPU: ovaj fajl NE instalira CUDA torch. Posle requirements:
+#   pip uninstall torch torchvision torchaudio -y
+#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 torch>=2.0
 transformers>=4.36.0,<4.45
 huggingface-hub>=0.23.0,<1.0

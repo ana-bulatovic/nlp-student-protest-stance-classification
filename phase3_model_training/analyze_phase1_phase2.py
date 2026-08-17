@@ -161,11 +161,27 @@ def setup_style() -> None:
     )
 
 
+def place_legend(ax, ncol: int | None = None) -> None:
+    """Legenda ispod grafikona, van oblasti crtanja."""
+    handles, labels = ax.get_legend_handles_labels()
+    if not handles:
+        return
+    ncol = ncol or min(len(handles), 4)
+    ax.legend(
+        handles,
+        labels,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.22),
+        ncol=ncol,
+        frameon=False,
+        borderaxespad=0.4,
+    )
+
+
 def save_fig(name: str) -> Path:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     path = OUT_DIR / name
-    plt.tight_layout()
-    plt.savefig(path, dpi=160, bbox_inches="tight")
+    plt.savefig(path, dpi=160, bbox_inches="tight", pad_inches=0.3)
     plt.close()
     return path
 
@@ -220,7 +236,7 @@ def plot_label_bars(counts: Counter) -> Path:
         ax.text(b.get_x() + b.get_width() / 2, v + max(vals) * 0.01, str(v), ha="center", fontweight="bold")
     ideal = sum(vals) / 3
     ax.axhline(ideal, color="#9ca3af", linestyle="--", label=f"idealno uravnoteženo ({ideal:.0f})")
-    ax.legend()
+    place_legend(ax, ncol=1)
     return save_fig("03_label_bars.png")
 
 
@@ -243,7 +259,7 @@ def plot_length_hist(by_label: dict[str, list[int]]) -> Path:
     ax.set_xlabel("Broj tokena (reči) po komentaru")
     ax.set_ylabel("Frekvencija")
     ax.set_title("Faza 2: dužina komentara po klasi")
-    ax.legend()
+    place_legend(ax)
     return save_fig("04_length_by_label.png")
 
 
@@ -275,7 +291,7 @@ def plot_phase1_by_platform(raw_by: dict[str, int], clean_by: dict[str, int]) ->
     ax.set_xticklabels(names)
     ax.set_ylabel("Broj komentara")
     ax.set_title("Faza 1: prikupljeni komentari po platformi")
-    ax.legend()
+    place_legend(ax, ncol=2)
     ymax = max(raw_vals + clean_vals + [1])
     for bars in (b1, b2):
         for bar in bars:
@@ -300,7 +316,7 @@ def plot_annotated_by_platform(rows: list[tuple[str, str, str]]) -> Path:
     ax.set_xticklabels(names)
     ax.set_ylabel("Broj anotiranih komentara")
     ax.set_title("Faza 2: anotirani primeri po platformi (stacked po klasi)")
-    ax.legend()
+    place_legend(ax)
     for i, p in enumerate(names):
         total = int(sum(by_plat[p].values()))
         ax.text(i, total + max(bottoms) * 0.01, str(total), ha="center", va="bottom", fontweight="bold")
@@ -337,8 +353,8 @@ def plot_class_share_by_platform(rows: list[tuple[str, str, str]]) -> Path:
     ax.set_xticklabels(names)
     ax.set_ylabel("Udeo klase (%)")
     ax.set_title("Faza 2: udeo klasa unutar svake platforme")
-    ax.legend()
     ax.set_ylim(0, 100)
+    place_legend(ax)
     return save_fig("09_class_share_by_platform.png")
 
 

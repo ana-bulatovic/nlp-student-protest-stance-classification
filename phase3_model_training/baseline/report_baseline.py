@@ -53,11 +53,27 @@ def setup_style() -> None:
     )
 
 
+def place_legend(ax, ncol: int | None = None) -> None:
+    """Legenda ispod grafikona, van oblasti crtanja."""
+    handles, labels = ax.get_legend_handles_labels()
+    if not handles:
+        return
+    ncol = ncol or min(len(handles), 4)
+    ax.legend(
+        handles,
+        labels,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.22),
+        ncol=ncol,
+        frameon=False,
+        borderaxespad=0.4,
+    )
+
+
 def save_fig(name: str) -> Path:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     path = OUT_DIR / name
-    plt.tight_layout()
-    plt.savefig(path, dpi=160, bbox_inches="tight")
+    plt.savefig(path, dpi=160, bbox_inches="tight", pad_inches=0.3)
     plt.close()
     return path
 
@@ -127,7 +143,7 @@ def plot_grouped(rows: list[dict], key: str, order: tuple[str, ...], title: str,
         ax.set_xticklabels(["uključen", "isključen"])
     ax.set_ylabel("prosečan macro-F1")
     ax.set_title(title)
-    ax.legend()
+    place_legend(ax)
     return save_fig(fname)
 
 
@@ -183,7 +199,7 @@ def plot_best_per_model_class(rows: list[dict]) -> Path:
     ax.set_ylabel("F1")
     ax.set_ylim(0, 1.05)
     ax.set_title("Najbolja konfiguracija svakog modela — F1 po klasi")
-    ax.legend()
+    place_legend(ax)
     return save_fig("07_best_model_per_class.png")
 
 
