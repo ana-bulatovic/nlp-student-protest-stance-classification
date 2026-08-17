@@ -221,3 +221,15 @@ __marimo__/
 phase1_data_collection/sessions/
 phase1_data_collection/sessions/**/*.txt
 phase1_data_collection/sessions/**/*.json
+
+# Phase 3 — veliki modeli / scratch
+phase3_model_training/baseline/output/baseline_model.joblib
+phase3_model_training/encoder/output/encoder_best/
+phase3_model_training/encoder/output/_encoder_scratch/
+phase3_model_training/decoder/output/decoder_cache/
+phase3_model_training/**/output/**/trainer_tmp/
+phase3_model_training/**/output/**/checkpoint-*/
+phase3_model_training/output/baseline_model.joblib
+phase3_model_training/output/encoder_best/
+phase3_model_training/output/_encoder_scratch/
+phase3_model_training/output/decoder_cache/

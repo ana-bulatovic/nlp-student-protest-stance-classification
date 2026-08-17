@@ -1,0 +1,6 @@
+# Ovde ide kalibracioni uzorak (~10% komentara).
+# Format po liniji (bez oznake):
+# tekst|url
+#
+# Posle kalibracije možete dodati gold:
+# tekst|url|OZNAKA

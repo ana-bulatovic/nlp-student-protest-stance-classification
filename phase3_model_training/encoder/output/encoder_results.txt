@@ -1,0 +1,12 @@
+### bertic (classla/bcms-bertic) | epochs=1
+
+               precision    recall  f1-score   support
+
+      NEUTRAL     0.0000    0.0000    0.0000       143
+     ZA-VLAST     0.4805    0.7420    0.5833       283
+PROTIV-VLASTI     0.4867    0.4672    0.4767       274
+
+     accuracy                         0.4829       700
+    macro avg     0.3224    0.4031    0.3534       700
+ weighted avg     0.3848    0.4829    0.4224       700
+

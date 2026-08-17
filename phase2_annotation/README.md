@@ -1,7 +1,25 @@
 # Phase 2: Anotacija podataka
 
-Ručno anotirani komentari sa Instagrama o studentskim protestima u Srbiji
-(stance / stav prema vlasti u kontekstu protesta).
+Ručna anotacija komentara (Instagram + X) o studentskim protestima u Srbiji —
+klasifikacija stava (stance) prema vlasti u kontekstu protesta.
+
+## Uputstva i kalibracija
+
+Glavni dokument za rad anotatora:
+
+- **[UPUTSTVA_ANOTACIJA.md](UPUTSTVA_ANOTACIJA.md)** — definicije oznaka, granični slučajevi, tok rada i **procedura kalibracije**
+
+Folder za kalibraciju (paralelna anotacija ~10% skupa):
+
+```text
+calibration/
+  calibration_set.txt           # uzorak za nezavisnu anotaciju
+  ann_<ime>.txt                 # predaje anotatora (napravite vi)
+  disagreements_resolved.md     # dogovoreni sporni slučajevi
+  agreement_report.md           # κ / α i rezime
+```
+
+**Redosled:** pročitati uputstva → uraditi kalibraciju → tek onda finalna anotacija ostatka skupa.
 
 ## Šema oznaka
 
@@ -17,41 +35,29 @@ Format zapisa (UTF-8 TXT, `|` kao separator):
 komentar|url_izvora|oznaka
 ```
 
-Ako URL izvora nije pouzdano nađen: u koloni URL stoji `NEMA`.
+Ako URL izvora nije pouzdano nađen: kolona URL ostaje prazna ili `NEMA`.
 
 ## Struktura
 
 ```text
 phase2_annotation/
-  annotated/
-    ig_final_neutral_annotated.txt
-    ig_final_pro_vlast_annotated.txt
-    ig_final_pro_student_annotated.txt
-    dataset_all.txt                 # spojeno (za treniranje)
+  UPUTSTVA_ANOTACIJA.md
   README.md
+  calibration/
+  annotated/
+    ig_final_*_annotated.txt
+    x_final_*_annotated.txt
+    dataset_all.txt                 # spojeno (za treniranje)
 ```
-
-## Broj primera (Instagram, trenutno)
-
-| Oznaka | Broj |
-|--------|------|
-| NEUTRAL | 118 |
-| ZA-VLAST | 150 |
-| PROTIV-VLASTI | 232 |
-| **Ukupno** | **500** |
-
-Izvor: kopije finalnih anotiranih fajlova iz `phase1_data_collection/output/instagram/`.
 
 ## Napomena za dokumentaciju (Faza 2)
 
-Prema propozicijama projekta, u ovoj fazi treba još dopuniti:
+Prema propozicijama projekta, u ovoj fazi treba:
 
-1. Uputstva za anotaciju (definicije + problematični slučajevi)
-2. Kalibracioni skup (~10%, paralelna anotacija članova grupe)
-3. Analizu saglasnosti anotatora
-4. Deskriptivnu statistiku finalnog skupa
-
-Trenutno su ovde sačuvani finalni Instagram anotirani podaci spremni za Fazu 3.
+1. ~~Uputstva za anotaciju (definicije + problematični slučajevi)~~ → `UPUTSTVA_ANOTACIJA.md`
+2. Kalibracioni skup (~10%, paralelna anotacija članova grupe) → folder `calibration/`
+3. Analizu saglasnosti anotatora → `calibration/agreement_report.md`
+4. Deskriptivnu statistiku finalnog skupa → vidi analizu ispod
 
 ## Analiza skupa
 
