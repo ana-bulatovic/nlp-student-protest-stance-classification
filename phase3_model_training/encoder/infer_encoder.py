@@ -9,17 +9,47 @@ import sys
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-DEFAULT_MODEL_DIR = SCRIPT_DIR / "output" / "encoder_best"
+MODEL_KEYS = ("bertic", "mbert")
 LABELS = ("NEUTRAL", "ZA-VLAST", "PROTIV-VLASTI")
 
 
+def default_model_dir(model_key: str) -> Path:
+    return SCRIPT_DIR / "output" / f"encoder_{model_key}"
+
+
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Inferenca: BERTić/mBERT (HF Trainer).")
-    parser.add_argument("--model-dir", type=Path, default=DEFAULT_MODEL_DIR)
+    parser = argparse.ArgumentParser(
+        description="Inferenca: BERTić / mBERT (HF Trainer).",
+        epilog=(
+            "Primeri:\n"
+            '  python encoder/infer_encoder.py --model bertic -t "Pumpaj!"\n'
+            '  python encoder/infer_encoder.py --model mbert -t "Pumpaj!"\n'
+            "  python encoder/infer_encoder.py --model bertic -i\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--model",
+        choices=MODEL_KEYS,
+        default="bertic",
+        help="Koji sačuvani model (default: bertic → output/encoder_bertic)",
+    )
+    parser.add_argument(
+        "--model-dir",
+        type=Path,
+        default=None,
+        help="Eksplicitni folder (overrides --model)",
+    )
     parser.add_argument("--text", "-t", action="append", default=[])
     parser.add_argument("--file", "-f", type=Path)
     parser.add_argument("--interactive", "-i", action="store_true")
     return parser.parse_args()
+
+
+def resolve_model_dir(args: argparse.Namespace) -> Path:
+    if args.model_dir is not None:
+        return args.model_dir
+    return default_model_dir(args.model)
 
 
 def load_model(model_dir: Path):
@@ -32,7 +62,8 @@ def load_model(model_dir: Path):
     if not model_dir.is_dir():
         raise FileNotFoundError(
             f"Nema modela: {model_dir}\n"
-            "Prvo pokreni: python encoder/train_encoder.py --quick"
+            "Prvo pokreni: python encoder/train_encoder.py --compare\n"
+            "  (ili --model bertic / --model mbert)"
         )
 
     meta: dict = {}
@@ -111,8 +142,9 @@ def main() -> int:
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
     args = parse_args()
+    model_dir = resolve_model_dir(args)
     try:
-        bundle = load_model(args.model_dir)
+        bundle = load_model(model_dir)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -123,7 +155,7 @@ def main() -> int:
     model, _tok, meta, use_cuda = bundle
     cfg = meta.get("best_config") or {}
     print(
-        f"Model: {args.model_dir.name} | HF Trainer | "
+        f"Model: {model_dir.name} | HF Trainer | "
         f"{cfg.get('model_key', meta.get('model_key', '?'))} "
         f"epochs={cfg.get('epochs', meta.get('epochs', '?'))} "
         f"cv_macro_f1={meta.get('cv_macro_f1', '?')} | "

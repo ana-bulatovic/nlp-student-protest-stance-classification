@@ -41,6 +41,7 @@ import torch  # noqa: E402
 from sklearn.metrics import (  # noqa: E402
     accuracy_score,
     classification_report,
+    confusion_matrix,
     f1_score,
 )
 from sklearn.model_selection import StratifiedKFold  # noqa: E402
@@ -59,6 +60,10 @@ MODEL_PRESETS = {
 }
 
 
+def default_model_dir(model_key: str) -> Path:
+    return SCRIPT_DIR / "output" / f"encoder_{model_key}"
+
+
 @dataclass
 class EncoderResult:
     model_key: str
@@ -69,6 +74,8 @@ class EncoderResult:
     weighted_f1: float
     per_class_f1: dict[str, float]
     fold_macro_f1: list[float]
+    confusion_matrix: list[list[int]]
+    model_dir: str | None = None
 
 
 class StanceDataset(Dataset):
@@ -88,17 +95,17 @@ class StanceDataset(Dataset):
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Fine-tuning enkodera (HF Trainer): jedan model + jedan broj epoha "
-            "po pokretanju (BERTić ili mBERT)."
+            "Fine-tuning enkodera (HF Trainer): BERTić / mBERT. "
+            "Preporučeno: --compare (oba modela, 4 epohe, CV, odvojeni folderi + izveštaj)."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Primeri (iz phase3_model_training/):\n"
-            "  python encoder/train_encoder.py --model bertic --epochs 3\n"
-            "  python encoder/train_encoder.py --model mbert --epochs 2\n"
-            "  python encoder/train_encoder.py --model bertic --epochs 4 --final-only\n"
-            "  python encoder/train_encoder.py --quick\n"
-            "  python encoder/train_encoder.py --all   # opcioni puni grid\n"
+            "  python encoder/train_encoder.py --compare\n"
+            "      # bertic pa mbert, 4 epohe, 10-fold; čuva encoder_bertic/ i encoder_mbert/\n"
+            "  python encoder/train_encoder.py --model bertic --epochs 4\n"
+            "  python encoder/train_encoder.py --model mbert --epochs 4 --final-only\n"
+            "  python encoder/train_encoder.py --compare --quick\n"
         ),
     )
     parser.add_argument("--data", type=Path, default=DEFAULT_DATA)
@@ -106,26 +113,36 @@ def parse_args() -> argparse.Namespace:
         "--output",
         type=Path,
         default=None,
-        help="JSON izlaz (default: output/encoder_results_<model>_e<epochs>.json)",
+        help="JSON izlaz (default zavisi od moda)",
     )
-    parser.add_argument("--model-dir", type=Path, default=DEFAULT_MODEL_DIR)
+    parser.add_argument(
+        "--model-dir",
+        type=Path,
+        default=None,
+        help="Folder za sačuvani model (default: output/encoder_<model>)",
+    )
     parser.add_argument(
         "--model",
         type=str,
         default="bertic",
         choices=list(MODEL_PRESETS.keys()),
-        help="Koji encoder trenirati (jedan po pokretanju). Default: bertic",
+        help="Jedan model (ignorisano sa --compare). Default: bertic",
     )
     parser.add_argument(
         "--epochs",
         type=int,
-        default=3,
-        help="Broj epoha za ovaj run (jedan broj). Default: 3",
+        default=4,
+        help="Broj epoha. Default: 4",
+    )
+    parser.add_argument(
+        "--compare",
+        action="store_true",
+        help="BERTić pa mBERT (isti --epochs), CV, oba foldera + poređenje/izveštaj",
     )
     parser.add_argument(
         "--all",
         action="store_true",
-        help="Puni eksperiment: bertic+mbert × epohe 2,3,4 (ignoriše --model/--epochs)",
+        help="Puni grid: bertic+mbert × epohe 2,3,4 (retko; za poređenje epoha)",
     )
     parser.add_argument("--folds", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=8)
@@ -135,7 +152,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--quick",
         action="store_true",
-        help="Smoke test: 2 folda, 1 epoha (isti --model)",
+        help="Smoke test: 2 folda, 1 epoha",
     )
     parser.add_argument("--no-save-model", action="store_true")
     parser.add_argument(
@@ -154,6 +171,7 @@ def parse_args() -> argparse.Namespace:
 def compute_metrics_arrays(y_true: list[str], y_pred: list[str]) -> dict:
     labels = list(LABELS)
     per = f1_score(y_true, y_pred, average=None, labels=labels, zero_division=0)
+    cm = confusion_matrix(y_true, y_pred, labels=labels)
     return {
         "accuracy": float(accuracy_score(y_true, y_pred)),
         "macro_f1": float(
@@ -163,6 +181,7 @@ def compute_metrics_arrays(y_true: list[str], y_pred: list[str]) -> dict:
             f1_score(y_true, y_pred, average="weighted", labels=labels, zero_division=0)
         ),
         "per_class_f1": {lab: float(v) for lab, v in zip(labels, per)},
+        "confusion_matrix": cm.astype(int).tolist(),
         "report": classification_report(
             y_true, y_pred, labels=labels, digits=4, zero_division=0
         ),
@@ -358,6 +377,7 @@ def evaluate_encoder_config(
         weighted_f1=metrics["weighted_f1"],
         per_class_f1=metrics["per_class_f1"],
         fold_macro_f1=fold_scores,
+        confusion_matrix=metrics["confusion_matrix"],
     )
     return result, metrics["report"]
 
@@ -467,6 +487,13 @@ def main() -> int:
         models = ["bertic", "mbert"]
         epochs_list = [2, 3, 4]
         print("\n=== FULL GRID: bertic+mbert × epochs 2,3,4 ===", flush=True)
+    elif args.compare:
+        models = ["bertic", "mbert"]
+        epochs_list = [int(args.epochs)]
+        print(
+            f"\n=== COMPARE: bertic pa mbert | epochs={epochs_list[0]} | CV ===",
+            flush=True,
+        )
     else:
         models = [args.model]
         epochs_list = [int(args.epochs)]
@@ -475,14 +502,19 @@ def main() -> int:
     batch_size = args.batch_size
 
     if args.quick:
-        models = [models[0]]
+        if not args.compare and not args.all:
+            models = [models[0]]
         epochs_list = [1]
         folds = min(2, folds)
         batch_size = min(8, batch_size)
         print("\n=== QUICK MODE (HF Trainer smoke test) ===")
 
     if args.output is None:
-        if args.all:
+        if args.compare:
+            args.output = (
+                SCRIPT_DIR / "output" / f"encoder_results_compare_e{epochs_list[0]}.json"
+            )
+        elif args.all:
             args.output = DEFAULT_OUTPUT
         else:
             args.output = (
@@ -502,6 +534,7 @@ def main() -> int:
     if args.final_only:
         model_key = models[0]
         epochs = int(epochs_list[0])
+        out_dir = args.model_dir or default_model_dir(model_key)
         print(
             f"\n=== FINAL-ONLY: {model_key} epochs={epochs} na celom skupu ===",
             flush=True,
@@ -515,7 +548,7 @@ def main() -> int:
             lr=args.lr,
             max_length=args.max_length,
             seed=args.seed,
-            out_dir=args.model_dir,
+            out_dir=out_dir,
             use_cuda=use_cuda,
             best_meta={
                 "model_key": model_key,
@@ -525,8 +558,10 @@ def main() -> int:
             },
             fp16=args.fp16,
         )
-        print(f"Model za inferencu: {args.model_dir}")
-        print("Dalje: python encoder/infer_encoder.py -t \"Pumpaj!\"")
+        print(f"Model za inferencu: {out_dir}")
+        print(
+            f'Dalje: python encoder/infer_encoder.py --model {model_key} -t "Pumpaj!"'
+        )
         return 0
 
     counts = Counter(labels)
@@ -542,6 +577,8 @@ def main() -> int:
     scratch = scratch_root()
     results: list[dict] = []
     reports: list[str] = []
+    # Jedan finalni model po model_key (ako --all ima više epoha, uzima najbolju)
+    best_by_model: dict[str, dict] = {}
 
     def save_partial() -> None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -555,6 +592,7 @@ def main() -> int:
             "lr": args.lr,
             "max_length": args.max_length,
             "device": "cuda" if use_cuda else "cpu",
+            "labels": list(LABELS),
             "results": results,
             "partial": True,
         }
@@ -591,10 +629,47 @@ def main() -> int:
                     flush=True,
                 )
                 print(report, flush=True)
-                results.append(asdict(result))
+                row = asdict(result)
+                results.append(row)
                 reports.append(f"### {tag}\n\n{report}")
+                prev = best_by_model.get(model_key)
+                if prev is None or row["macro_f1"] > prev["macro_f1"]:
+                    best_by_model[model_key] = row
                 save_partial()
                 print(f"Sacuvano (delimicno): {args.output}", flush=True)
+
+            if not args.no_save_model and model_key in best_by_model:
+                best = best_by_model[model_key]
+                out_dir = (
+                    args.model_dir
+                    if args.model_dir and len(models) == 1
+                    else default_model_dir(model_key)
+                )
+                print(
+                    f"\n=== Finalni model na celom skupu: {model_key} "
+                    f"epochs={best['epochs']} → {out_dir} ===",
+                    flush=True,
+                )
+                train_full_and_save(
+                    model_key=model_key,
+                    texts=texts,
+                    labels=labels,
+                    epochs=int(best["epochs"]),
+                    batch_size=batch_size,
+                    lr=args.lr,
+                    max_length=args.max_length,
+                    seed=args.seed,
+                    out_dir=out_dir,
+                    use_cuda=use_cuda,
+                    best_meta=best,
+                    fp16=args.fp16,
+                )
+                for r in results:
+                    if r["model_key"] == model_key and r["epochs"] == best["epochs"]:
+                        r["model_dir"] = str(out_dir)
+                best["model_dir"] = str(out_dir)
+                save_partial()
+                print(f"Model za inferencu: {out_dir}", flush=True)
     except KeyboardInterrupt:
         print("\nPrekinuto. Cuva se to sto je do sada zavrseno ...", flush=True)
         if results:
@@ -603,7 +678,7 @@ def main() -> int:
             print(f"Izvestaj: {args.output.with_suffix('.txt')}", flush=True)
         else:
             print(
-                "Nijedna kombinacija nije stigla do kraja 10 foldova — nema JSON-a.",
+                "Nijedna kombinacija nije stigla do kraja foldova — nema JSON-a.",
                 flush=True,
             )
         return 0
@@ -619,7 +694,9 @@ def main() -> int:
         "lr": args.lr,
         "max_length": args.max_length,
         "device": "cuda" if use_cuda else "cpu",
+        "labels": list(LABELS),
         "results": results,
+        "compare": bool(args.compare),
     }
     args.output.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -635,30 +712,31 @@ def main() -> int:
             f"macro_f1={r['macro_f1']:.4f} acc={r['accuracy']:.4f}"
         )
 
-    if not args.no_save_model and ranked:
-        best = ranked[0]
+    if len(ranked) >= 2:
+        winner = ranked[0]
         print(
-            f"\nTreniram finalni model na celom skupu: "
-            f"{best['model_key']} epochs={best['epochs']} ..."
+            f"\n>>> Bolji po macro-F1: {winner['model_key']} "
+            f"(epochs={winner['epochs']}, macro_f1={winner['macro_f1']:.4f})",
+            flush=True,
         )
-        train_full_and_save(
-            model_key=best["model_key"],
-            texts=texts,
-            labels=labels,
-            epochs=int(best["epochs"]),
-            batch_size=batch_size,
-            lr=args.lr,
-            max_length=args.max_length,
-            seed=args.seed,
-            out_dir=args.model_dir,
-            use_cuda=use_cuda,
-            best_meta=best,
-            fp16=args.fp16,
-        )
-        print(f"Model za inferencu: {args.model_dir}")
 
     print(f"\nRezultati: {args.output}")
     print(f"Izvestaji: {report_path}")
+    for key, best in best_by_model.items():
+        md = best.get("model_dir") or default_model_dir(key)
+        print(
+            f'Inferenca {key}: python encoder/infer_encoder.py --model {key} -t "Pumpaj!"'
+        )
+        print(f"  folder: {md}")
+
+    try:
+        from report_encoder import generate as write_encoder_report
+
+        print("\nGenerisem grafike i izvestaj za encoder ...", flush=True)
+        write_encoder_report(args.output)
+    except Exception as exc:
+        print(f"Upozorenje: encoder izvestaj nije napravljen ({exc})", flush=True)
+
     return 0
 
 

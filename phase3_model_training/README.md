@@ -5,7 +5,7 @@ Stance klasifikacija komentara (3 klase): `NEUTRAL`, `ZA-VLAST`, `PROTIV-VLASTI`
 ```text
 phase3_model_training/
   baseline/     # LR, SVM, Naive Bayes
-  encoder/      # BERTić, mBERT (Simple Transformers)
+  encoder/      # BERTić, mBERT (HF Trainer)
   decoder/      # Ollama / ChatGPT / Gemini prompting
   common/       # zajedničko učitavanje skupa
   samples/
@@ -71,28 +71,45 @@ python baseline/infer_baseline.py -t "Pumpaj!"
 
 **Važno (Windows + torch 2.0):** ne instaliraj `transformers` 5.x — koristi `requirements.txt`.
 
-Pokreni iz `phase3_model_training/`. **Podrazumevano** je **jedan** model i **jedan** broj epoha (bertic, 3), ne ceo grid.
+Pokreni iz `phase3_model_training/`. Preporučeni tok: **BERTić pa mBERT**, **4 epohe**, **10-fold CV**, modeli u **dva foldera**, pa automatsko poređenje + grafike.
 
 ```bash
-# smoke test
-python encoder/train_encoder.py --quick
+# 1) brzi smoke test (oba modela, 2 folda, 1 epoha)
+python encoder/train_encoder.py --compare --quick
 
-# jedna kombinacija (default: bertic, 3 epohe, 10-fold)
-python encoder/train_encoder.py
-python encoder/train_encoder.py --model bertic --epochs 2
+# 2) puni uporedni trening (bertic → mbert, 4 epohe, 10-fold; čuva oba modela)
+python encoder/train_encoder.py --compare
+
+# samo jedan model (ako treba odvojeno)
+python encoder/train_encoder.py --model bertic --epochs 4
 python encoder/train_encoder.py --model mbert --epochs 4
 
-# sačuvaj model za inferencu (bez CV)
-python encoder/train_encoder.py --model bertic --epochs 3 --final-only
-
-# puni grid (bertic+mbert × 2,3,4 epohe) — samo ako baš treba
-python encoder/train_encoder.py --all
-
-# inferenca
-python encoder/infer_encoder.py -t "Pumpaj!"
+# samo sačuvaj model bez CV
+python encoder/train_encoder.py --model bertic --epochs 4 --final-only
 ```
 
-Bez GPU-a je sporo. Izlaz: `encoder/output/` (JSON/TXT); `encoder_best/` je prevelik za git.
+Posle `--compare` skripta:
+
+1. radi CV za **bertic**, pa ga trenira na celom skupu → `encoder/output/encoder_bertic/`
+2. isto za **mbert** → `encoder/output/encoder_mbert/`
+3. štampa ko je bolji (macro-F1)
+4. generiše izveštaj i grafike (ili ručno: `python encoder/report_encoder.py`)
+
+Izlaz za izveštaj:
+
+- `ENCODER_IZVESTAJ.md`
+- `output/encoder_analysis/*.png` — poređenje metrika, F1 po klasi, foldovi, matrice konfuzije, ranking
+- JSON: `encoder/output/encoder_results_compare_e4.json` (+ `.txt` classification report)
+
+Inferenca (oba modela):
+
+```bash
+python encoder/infer_encoder.py --model bertic -t "Pumpaj!"
+python encoder/infer_encoder.py --model mbert -t "Pumpaj!"
+python encoder/infer_encoder.py --model bertic -i
+```
+
+Bez GPU-a je sporo. Folderi modela (`encoder_bertic/`, `encoder_mbert/`) su preveliki za git.
 
 ## Dekoder (prompting)
 

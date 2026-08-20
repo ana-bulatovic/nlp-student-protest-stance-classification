@@ -225,6 +225,8 @@ phase1_data_collection/sessions/**/*.json
 # Phase 3 — veliki modeli / scratch (checkpoint-i su preveliki za git)
 phase3_model_training/baseline/output/baseline_model.joblib
 phase3_model_training/encoder/output/encoder_best/
+phase3_model_training/encoder/output/encoder_bertic/
+phase3_model_training/encoder/output/encoder_mbert/
 phase3_model_training/encoder/output/_encoder_scratch/
 phase3_model_training/decoder/output/decoder_cache/
 phase3_model_training/**/output/**/trainer_tmp/
@@ -240,3 +242,5 @@ phase3_model_training/encoder/runs/
 
 # Grafike za izveštaj (PNG + summary.json) idu na git:
 # phase3_model_training/output/data_analysis/
+# phase3_model_training/output/encoder_analysis/
+# phase3_model_training/ENCODER_IZVESTAJ.md
