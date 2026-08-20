@@ -1,0 +1,109 @@
+{
+  "framework": "transformers.Trainer",
+  "data": "C:\\Users\\korisnik\\Desktop\\Ana Bulatovic\\opj\\nlp-student-protest-stance-classification\\phase2_annotation\\annotated\\dataset_all.txt",
+  "n_samples": 2874,
+  "label_counts": {
+    "NEUTRAL": 668,
+    "ZA-VLAST": 1038,
+    "PROTIV-VLASTI": 1168
+  },
+  "folds": 10,
+  "batch_size": 8,
+  "lr": 2e-05,
+  "max_length": 128,
+  "device": "cuda",
+  "labels": [
+    "NEUTRAL",
+    "ZA-VLAST",
+    "PROTIV-VLASTI"
+  ],
+  "results": [
+    {
+      "model_key": "bertic",
+      "model_name": "classla/bcms-bertic",
+      "epochs": 4,
+      "accuracy": 0.6680584551148225,
+      "macro_f1": 0.6470753886161394,
+      "weighted_f1": 0.6662043272245952,
+      "per_class_f1": {
+        "NEUTRAL": 0.5137039937353172,
+        "ZA-VLAST": 0.7371456030754444,
+        "PROTIV-VLASTI": 0.690376569037657
+      },
+      "fold_macro_f1": [
+        0.6536902047859611,
+        0.662300157977883,
+        0.6210356583202225,
+        0.623149130042025,
+        0.596477774937672,
+        0.6311220209777216,
+        0.6461944777911164,
+        0.657838521616552,
+        0.6969549829410436,
+        0.685673487241698
+      ],
+      "confusion_matrix": [
+        [
+          328,
+          124,
+          216
+        ],
+        [
+          90,
+          767,
+          181
+        ],
+        [
+          191,
+          152,
+          825
+        ]
+      ],
+      "model_dir": "C:\\Users\\korisnik\\Desktop\\Ana Bulatovic\\opj\\nlp-student-protest-stance-classification\\phase3_model_training\\encoder\\output\\encoder_bertic"
+    },
+    {
+      "model_key": "mbert",
+      "model_name": "bert-base-multilingual-cased",
+      "epochs": 4,
+      "accuracy": 0.6005567153792624,
+      "macro_f1": 0.5805253998073056,
+      "weighted_f1": 0.5992756807591798,
+      "per_class_f1": {
+        "NEUTRAL": 0.44976816074188564,
+        "ZA-VLAST": 0.6689124157844081,
+        "PROTIV-VLASTI": 0.6228956228956228
+      },
+      "fold_macro_f1": [
+        0.5571650254688518,
+        0.5915958089136059,
+        0.565893084560808,
+        0.5981461442447172,
+        0.5447280603169108,
+        0.5721433131184169,
+        0.5571655512677718,
+        0.6065877169601381,
+        0.6161208669514318,
+        0.5957425352586413
+      ],
+      "confusion_matrix": [
+        [
+          291,
+          136,
+          241
+        ],
+        [
+          116,
+          695,
+          227
+        ],
+        [
+          219,
+          209,
+          740
+        ]
+      ],
+      "model_dir": "C:\\Users\\korisnik\\Desktop\\Ana Bulatovic\\opj\\nlp-student-protest-stance-classification\\phase3_model_training\\encoder\\output\\encoder_mbert"
+    }
+  ],
+  "compare": true
+}
