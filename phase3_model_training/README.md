@@ -67,23 +67,32 @@ Inferenca:
 python baseline/infer_baseline.py -t "Pumpaj!"
 ```
 
-## Enkoder (Simple Transformers)
+## Enkoder (Hugging Face Trainer)
 
 **Važno (Windows + torch 2.0):** ne instaliraj `transformers` 5.x — koristi `requirements.txt`.
 
-Pokreni **posle** baseline-a, iz `phase3_model_training/`:
+Pokreni iz `phase3_model_training/`. **Podrazumevano** je **jedan** model i **jedan** broj epoha (bertic, 3), ne ceo grid.
 
 ```bash
-# 1) smoke test (1 epoha, 2 folda, jedan model) — da vidiš da torch radi
+# smoke test
 python encoder/train_encoder.py --quick
 
-# 2) puni eksperiment (BERTić + mBERT, 2/3/4 epohe, 10-fold CV)
+# jedna kombinacija (default: bertic, 3 epohe, 10-fold)
 python encoder/train_encoder.py
+python encoder/train_encoder.py --model bertic --epochs 2
+python encoder/train_encoder.py --model mbert --epochs 4
+
+# sačuvaj model za inferencu (bez CV)
+python encoder/train_encoder.py --model bertic --epochs 3 --final-only
+
+# puni grid (bertic+mbert × 2,3,4 epohe) — samo ako baš treba
+python encoder/train_encoder.py --all
+
+# inferenca
+python encoder/infer_encoder.py -t "Pumpaj!"
 ```
 
-Bez GPU-a je sporo; za puni encoder bolje Colab / mašina sa NVIDIA karticom.
-
-Izlaz: `encoder/output/` (rezultati JSON/TXT da; folder `encoder_best/` je prevelik za git).
+Bez GPU-a je sporo. Izlaz: `encoder/output/` (JSON/TXT); `encoder_best/` je prevelik za git.
 
 ## Dekoder (prompting)
 

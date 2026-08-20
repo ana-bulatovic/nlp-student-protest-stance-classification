@@ -87,23 +87,45 @@ class StanceDataset(Dataset):
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Fine-tuning enkodera (HF Trainer): BERTić / mBERT."
+        description=(
+            "Fine-tuning enkodera (HF Trainer): jedan model + jedan broj epoha "
+            "po pokretanju (BERTić ili mBERT)."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Primeri (iz phase3_model_training/):\n"
+            "  python encoder/train_encoder.py --model bertic --epochs 3\n"
+            "  python encoder/train_encoder.py --model mbert --epochs 2\n"
+            "  python encoder/train_encoder.py --model bertic --epochs 4 --final-only\n"
+            "  python encoder/train_encoder.py --quick\n"
+            "  python encoder/train_encoder.py --all   # opcioni puni grid\n"
+        ),
     )
     parser.add_argument("--data", type=Path, default=DEFAULT_DATA)
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="JSON izlaz (default: output/encoder_results_<model>_e<epochs>.json)",
+    )
     parser.add_argument("--model-dir", type=Path, default=DEFAULT_MODEL_DIR)
     parser.add_argument(
-        "--models",
-        nargs="+",
-        default=["bertic", "mbert"],
+        "--model",
+        type=str,
+        default="bertic",
         choices=list(MODEL_PRESETS.keys()),
+        help="Koji encoder trenirati (jedan po pokretanju). Default: bertic",
     )
     parser.add_argument(
         "--epochs",
-        nargs="+",
         type=int,
-        default=[2, 3, 4],
-        help="Varijante po broju epoha (PDF)",
+        default=3,
+        help="Broj epoha za ovaj run (jedan broj). Default: 3",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Puni eksperiment: bertic+mbert × epohe 2,3,4 (ignoriše --model/--epochs)",
     )
     parser.add_argument("--folds", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=8)
@@ -113,9 +135,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--quick",
         action="store_true",
-        help="Smoke test: 2 folda, 1 epoha, jedan model",
+        help="Smoke test: 2 folda, 1 epoha (isti --model)",
     )
     parser.add_argument("--no-save-model", action="store_true")
+    parser.add_argument(
+        "--final-only",
+        action="store_true",
+        help="Preskoči CV: istreniraj na celom skupu i sačuvaj model za inferencu.",
+    )
     parser.add_argument(
         "--fp16",
         action="store_true",
@@ -436,8 +463,14 @@ def main() -> int:
             flush=True,
         )
 
-    models = list(args.models)
-    epochs_list = list(args.epochs)
+    if args.all:
+        models = ["bertic", "mbert"]
+        epochs_list = [2, 3, 4]
+        print("\n=== FULL GRID: bertic+mbert × epochs 2,3,4 ===", flush=True)
+    else:
+        models = [args.model]
+        epochs_list = [int(args.epochs)]
+
     folds = args.folds
     batch_size = args.batch_size
 
@@ -447,6 +480,54 @@ def main() -> int:
         folds = min(2, folds)
         batch_size = min(8, batch_size)
         print("\n=== QUICK MODE (HF Trainer smoke test) ===")
+
+    if args.output is None:
+        if args.all:
+            args.output = DEFAULT_OUTPUT
+        else:
+            args.output = (
+                SCRIPT_DIR
+                / "output"
+                / f"encoder_results_{models[0]}_e{epochs_list[0]}.json"
+            )
+
+    n_combos = len(models) * len(epochs_list)
+    print(
+        f"Plan: model(i)={models}  epohe={epochs_list}  folds={folds}  "
+        f"→ {n_combos} kombinacija "
+        f"({n_combos * folds} treninga + eventualni final)",
+        flush=True,
+    )
+
+    if args.final_only:
+        model_key = models[0]
+        epochs = int(epochs_list[0])
+        print(
+            f"\n=== FINAL-ONLY: {model_key} epochs={epochs} na celom skupu ===",
+            flush=True,
+        )
+        train_full_and_save(
+            model_key=model_key,
+            texts=texts,
+            labels=labels,
+            epochs=epochs,
+            batch_size=batch_size,
+            lr=args.lr,
+            max_length=args.max_length,
+            seed=args.seed,
+            out_dir=args.model_dir,
+            use_cuda=use_cuda,
+            best_meta={
+                "model_key": model_key,
+                "epochs": epochs,
+                "macro_f1": None,
+                "note": "final-only (nema CV u ovom pokretanju)",
+            },
+            fp16=args.fp16,
+        )
+        print(f"Model za inferencu: {args.model_dir}")
+        print("Dalje: python encoder/infer_encoder.py -t \"Pumpaj!\"")
+        return 0
 
     counts = Counter(labels)
     min_class = min(counts.values())
@@ -462,33 +543,70 @@ def main() -> int:
     results: list[dict] = []
     reports: list[str] = []
 
-    for model_key in models:
-        model_name = MODEL_PRESETS[model_key]["model_name"]
-        for epochs in epochs_list:
-            tag = f"{model_key} ({model_name}) | epochs={epochs}"
-            print(f"\n=== {tag} ===", flush=True)
-            result, report = evaluate_encoder_config(
-                model_key=model_key,
-                texts=texts,
-                labels=labels,
-                epochs=epochs,
-                folds=folds,
-                batch_size=batch_size,
-                lr=args.lr,
-                max_length=args.max_length,
-                seed=args.seed,
-                scratch_dir=scratch,
-                use_cuda=use_cuda,
-                fp16=args.fp16,
-            )
+    def save_partial() -> None:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "framework": "transformers.Trainer",
+            "data": str(args.data),
+            "n_samples": len(texts),
+            "label_counts": dict(Counter(labels)),
+            "folds": folds,
+            "batch_size": batch_size,
+            "lr": args.lr,
+            "max_length": args.max_length,
+            "device": "cuda" if use_cuda else "cpu",
+            "results": results,
+            "partial": True,
+        }
+        args.output.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        args.output.with_suffix(".txt").write_text(
+            "\n\n".join(reports) + "\n", encoding="utf-8"
+        )
+
+    try:
+        for model_key in models:
+            model_name = MODEL_PRESETS[model_key]["model_name"]
+            for epochs in epochs_list:
+                tag = f"{model_key} ({model_name}) | epochs={epochs}"
+                print(f"\n=== {tag} ===", flush=True)
+                result, report = evaluate_encoder_config(
+                    model_key=model_key,
+                    texts=texts,
+                    labels=labels,
+                    epochs=epochs,
+                    folds=folds,
+                    batch_size=batch_size,
+                    lr=args.lr,
+                    max_length=args.max_length,
+                    seed=args.seed,
+                    scratch_dir=scratch,
+                    use_cuda=use_cuda,
+                    fp16=args.fp16,
+                )
+                print(
+                    f"acc={result.accuracy:.4f}  macro_f1={result.macro_f1:.4f}  "
+                    f"fold_mean={float(np.mean(result.fold_macro_f1)):.4f}",
+                    flush=True,
+                )
+                print(report, flush=True)
+                results.append(asdict(result))
+                reports.append(f"### {tag}\n\n{report}")
+                save_partial()
+                print(f"Sacuvano (delimicno): {args.output}", flush=True)
+    except KeyboardInterrupt:
+        print("\nPrekinuto. Cuva se to sto je do sada zavrseno ...", flush=True)
+        if results:
+            save_partial()
+            print(f"Delimicni rezultati: {args.output}", flush=True)
+            print(f"Izvestaj: {args.output.with_suffix('.txt')}", flush=True)
+        else:
             print(
-                f"acc={result.accuracy:.4f}  macro_f1={result.macro_f1:.4f}  "
-                f"fold_mean={float(np.mean(result.fold_macro_f1)):.4f}",
+                "Nijedna kombinacija nije stigla do kraja 10 foldova — nema JSON-a.",
                 flush=True,
             )
-            print(report, flush=True)
-            results.append(asdict(result))
-            reports.append(f"### {tag}\n\n{report}")
+        return 0
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     payload = {
