@@ -24,6 +24,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
+    confusion_matrix,
     f1_score,
 )
 from sklearn.model_selection import GridSearchCV, StratifiedKFold, cross_val_predict
@@ -60,6 +61,7 @@ class FoldResult:
     macro_f1: float
     weighted_f1: float
     per_class_f1: dict[str, float]
+    confusion_matrix: list[list[int]]
 
 
 def make_vectorizer(weighting: str, lowercase: bool):
@@ -150,6 +152,7 @@ def evaluate_config(
     weighted = float(f1_score(y, y_pred, average="weighted", labels=list(LABELS)))
     per = f1_score(y, y_pred, average=None, labels=list(LABELS))
     per_class = {lab: float(v) for lab, v in zip(LABELS, per)}
+    cm = confusion_matrix(y, y_pred, labels=list(LABELS)).astype(int).tolist()
 
     report = classification_report(
         y, y_pred, labels=list(LABELS), digits=4, zero_division=0
@@ -164,6 +167,7 @@ def evaluate_config(
         macro_f1=macro,
         weighted_f1=weighted,
         per_class_f1=per_class,
+        confusion_matrix=cm,
     )
     return result, report, fitted_pipe
 
