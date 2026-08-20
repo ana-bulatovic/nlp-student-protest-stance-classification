@@ -43,6 +43,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--text", "-t", action="append", default=[])
     parser.add_argument("--file", "-f", type=Path)
     parser.add_argument("--interactive", "-i", action="store_true")
+    parser.add_argument(
+        "--csv",
+        type=Path,
+        default=None,
+        help="Sacuvaj rezultate u CSV (npr. output/bertic_demo.csv)",
+    )
+    parser.add_argument(
+        "--table",
+        action="store_true",
+        help="Stampaj preglednu tabelu (komentar | labela | verovatnoce)",
+    )
     return parser.parse_args()
 
 
@@ -120,7 +131,7 @@ def read_texts(args: argparse.Namespace) -> list[str]:
     if args.file:
         for line in args.file.read_text(encoding="utf-8").splitlines():
             line = line.strip()
-            if not line:
+            if not line or line.startswith("#"):
                 continue
             if "|" in line:
                 line = line.split("|", 1)[0].strip()
@@ -133,6 +144,41 @@ def print_row(row: dict) -> None:
     print(f"[{row['label']}] {row['text']}")
     parts = [f"{k}={v:.3f}" for k, v in row["scores"].items()]
     print("  verovatnoce:", ", ".join(parts))
+
+
+def print_table(rows: list[dict]) -> None:
+    print()
+    print(f"{'#':<3} {'LABEL':<16} {'P(label)':>8}  KOMENTAR")
+    print("-" * 100)
+    for i, row in enumerate(rows, 1):
+        p = row["scores"].get(row["label"], 0.0)
+        text = row["text"].replace("\n", " ")
+        if len(text) > 70:
+            text = text[:67] + "..."
+        print(f"{i:<3} {row['label']:<16} {p:>8.3f}  {text}")
+    print("-" * 100)
+    print(f"Ukupno: {len(rows)} komentara")
+
+
+def save_csv(rows: list[dict], path: Path) -> None:
+    import csv
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    label_keys = list(LABELS)
+    with path.open("w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.writer(f, delimiter=";")
+        writer.writerow(["rbr", "komentar", "predikcija", "P_pred"] + [f"P_{k}" for k in label_keys])
+        for i, row in enumerate(rows, 1):
+            writer.writerow(
+                [
+                    i,
+                    row["text"],
+                    row["label"],
+                    f"{row['scores'].get(row['label'], 0.0):.4f}",
+                    *[f"{row['scores'].get(k, 0.0):.4f}" for k in label_keys],
+                ]
+            )
+    print(f"CSV: {path}")
 
 
 def main() -> int:
@@ -176,8 +222,20 @@ def main() -> int:
             print_row(predict_texts(bundle, [line])[0])
         return 0
 
-    for row in predict_texts(bundle, texts):
-        print_row(row)
+    rows = predict_texts(bundle, texts)
+    if args.table or args.csv is not None or args.file is not None:
+        print_table(rows)
+    else:
+        for row in rows:
+            print_row(row)
+
+    if args.csv is not None:
+        save_csv(rows, args.csv)
+    elif args.file is not None:
+        # podrazumevani CSV pored rezultata
+        out = SCRIPT_DIR / "output" / f"infer_{args.model}_demo.csv"
+        save_csv(rows, out)
+
     return 0
 
 
