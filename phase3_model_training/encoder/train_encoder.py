@@ -140,6 +140,16 @@ def parse_args() -> argparse.Namespace:
         help="BERTić pa mBERT (isti --epochs), CV, oba foldera + poređenje/izveštaj",
     )
     parser.add_argument(
+        "--continue",
+        dest="continue_run",
+        action="store_true",
+        help=(
+            "Nastavi prekinuti run: učitaj postojeći --output JSON, "
+            "preskoči CV za modele koji već imaju rezultat; "
+            "ako folder modela nedostaje, uradi samo finalni trening."
+        ),
+    )
+    parser.add_argument(
         "--all",
         action="store_true",
         help="Puni grid: bertic+mbert × epohe 2,3,4 (retko; za poređenje epoha)",
@@ -221,10 +231,17 @@ def make_training_args(
         overwrite_output_dir=True,
         disable_tqdm=False,
     )
+    # Spreči Trainer da forsira safetensors pri eventualnom save-u.
     try:
-        return TrainingArguments(**common, eval_strategy="no")
+        return TrainingArguments(**common, eval_strategy="no", save_safetensors=False)
     except TypeError:
-        return TrainingArguments(**common, evaluation_strategy="no")
+        try:
+            return TrainingArguments(**common, evaluation_strategy="no", save_safetensors=False)
+        except TypeError:
+            try:
+                return TrainingArguments(**common, eval_strategy="no")
+            except TypeError:
+                return TrainingArguments(**common, evaluation_strategy="no")
 
 
 def load_backbone(model_key: str, max_length: int):
@@ -382,6 +399,16 @@ def evaluate_encoder_config(
     return result, metrics["report"]
 
 
+def make_weights_contiguous(model) -> None:
+    """Safetensors / neki HF save putevi padaju na non-contiguous Electra težinama."""
+    for p in model.parameters():
+        if p.data is not None and not p.data.is_contiguous():
+            p.data = p.data.contiguous()
+    for b in model.buffers():
+        if b.data is not None and not b.data.is_contiguous():
+            b.data = b.data.contiguous()
+
+
 def train_full_and_save(
     model_key: str,
     texts: list[str],
@@ -413,8 +440,10 @@ def train_full_and_save(
         train_dataset=train_ds,
     )
     trainer.train()
+    make_weights_contiguous(model)
     tokenizer.save_pretrained(out_dir)
-    trainer.save_model(out_dir)
+    # Direktno na model: Trainer.save_model ponekad forsira safetensors=True.
+    model.save_pretrained(out_dir, safe_serialization=False)
     shutil.rmtree(out_dir / "_train", ignore_errors=True)
 
     meta = {
@@ -580,6 +609,28 @@ def main() -> int:
     # Jedan finalni model po model_key (ako --all ima više epoha, uzima najbolju)
     best_by_model: dict[str, dict] = {}
 
+    if args.continue_run and args.output.is_file():
+        try:
+            prev = json.loads(args.output.read_text(encoding="utf-8"))
+            for row in prev.get("results") or []:
+                results.append(row)
+                key = row.get("model_key")
+                if key and (
+                    key not in best_by_model
+                    or float(row["macro_f1"]) > float(best_by_model[key]["macro_f1"])
+                ):
+                    best_by_model[key] = row
+            txt_path = args.output.with_suffix(".txt")
+            if txt_path.is_file():
+                reports.append(txt_path.read_text(encoding="utf-8").rstrip())
+            print(
+                f"Nastavak: ucitano {len(results)} rezultata iz {args.output} "
+                f"(modeli: {sorted(best_by_model)})",
+                flush=True,
+            )
+        except Exception as exc:
+            print(f"Upozorenje: --continue nije ucitao JSON ({exc})", flush=True)
+
     def save_partial() -> None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         payload = {
@@ -606,37 +657,45 @@ def main() -> int:
     try:
         for model_key in models:
             model_name = MODEL_PRESETS[model_key]["model_name"]
-            for epochs in epochs_list:
-                tag = f"{model_key} ({model_name}) | epochs={epochs}"
-                print(f"\n=== {tag} ===", flush=True)
-                result, report = evaluate_encoder_config(
-                    model_key=model_key,
-                    texts=texts,
-                    labels=labels,
-                    epochs=epochs,
-                    folds=folds,
-                    batch_size=batch_size,
-                    lr=args.lr,
-                    max_length=args.max_length,
-                    seed=args.seed,
-                    scratch_dir=scratch,
-                    use_cuda=use_cuda,
-                    fp16=args.fp16,
-                )
+            already = model_key in best_by_model and args.continue_run
+            if already:
                 print(
-                    f"acc={result.accuracy:.4f}  macro_f1={result.macro_f1:.4f}  "
-                    f"fold_mean={float(np.mean(result.fold_macro_f1)):.4f}",
+                    f"\n=== PRESKACEM CV: {model_key} vec u JSON "
+                    f"(macro_f1={best_by_model[model_key]['macro_f1']:.4f}) ===",
                     flush=True,
                 )
-                print(report, flush=True)
-                row = asdict(result)
-                results.append(row)
-                reports.append(f"### {tag}\n\n{report}")
-                prev = best_by_model.get(model_key)
-                if prev is None or row["macro_f1"] > prev["macro_f1"]:
-                    best_by_model[model_key] = row
-                save_partial()
-                print(f"Sacuvano (delimicno): {args.output}", flush=True)
+            else:
+                for epochs in epochs_list:
+                    tag = f"{model_key} ({model_name}) | epochs={epochs}"
+                    print(f"\n=== {tag} ===", flush=True)
+                    result, report = evaluate_encoder_config(
+                        model_key=model_key,
+                        texts=texts,
+                        labels=labels,
+                        epochs=epochs,
+                        folds=folds,
+                        batch_size=batch_size,
+                        lr=args.lr,
+                        max_length=args.max_length,
+                        seed=args.seed,
+                        scratch_dir=scratch,
+                        use_cuda=use_cuda,
+                        fp16=args.fp16,
+                    )
+                    print(
+                        f"acc={result.accuracy:.4f}  macro_f1={result.macro_f1:.4f}  "
+                        f"fold_mean={float(np.mean(result.fold_macro_f1)):.4f}",
+                        flush=True,
+                    )
+                    print(report, flush=True)
+                    row = asdict(result)
+                    results.append(row)
+                    reports.append(f"### {tag}\n\n{report}")
+                    prev = best_by_model.get(model_key)
+                    if prev is None or row["macro_f1"] > prev["macro_f1"]:
+                        best_by_model[model_key] = row
+                    save_partial()
+                    print(f"Sacuvano (delimicno): {args.output}", flush=True)
 
             if not args.no_save_model and model_key in best_by_model:
                 best = best_by_model[model_key]
@@ -645,6 +704,22 @@ def main() -> int:
                     if args.model_dir and len(models) == 1
                     else default_model_dir(model_key)
                 )
+                meta_ok = (out_dir / "stance_meta.json").is_file()
+                weights_ok = any(out_dir.glob("pytorch_model*.bin")) or any(
+                    out_dir.glob("model.safetensors")
+                )
+                if args.continue_run and meta_ok and weights_ok:
+                    print(
+                        f"Preskacem finalni trening: model vec postoji u {out_dir}",
+                        flush=True,
+                    )
+                    for r in results:
+                        if r["model_key"] == model_key and r["epochs"] == best["epochs"]:
+                            r["model_dir"] = str(out_dir)
+                    best["model_dir"] = str(out_dir)
+                    save_partial()
+                    continue
+
                 print(
                     f"\n=== Finalni model na celom skupu: {model_key} "
                     f"epochs={best['epochs']} → {out_dir} ===",

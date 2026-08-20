@@ -82,6 +82,9 @@ python encoder/train_encoder.py --compare --quick
 # 2) puni uporedni trening (bertic → mbert, 4 epohe, 10-fold; čuva oba modela)
 python encoder/train_encoder.py --compare
 
+# ako se prekine posle bertic CV (JSON već postoji): nastavi bez ponovnog CV-a za bertic
+python encoder/train_encoder.py --compare --continue
+
 # samo jedan model (ako treba odvojeno)
 python encoder/train_encoder.py --model bertic --epochs 4
 python encoder/train_encoder.py --model mbert --epochs 4

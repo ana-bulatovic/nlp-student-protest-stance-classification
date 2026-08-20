@@ -41,10 +41,9 @@ def apply() -> None:
     for module_path, old_name in _SEQUENCE_SUMMARY_ALIASES:
         _alias_sequence_summary(module_path, old_name, SequenceSummary)
 
-    # 3) Simple Transformers ne prosledjuje safe_serialization=False, a neke
-    # arhitekture (npr. ELECTRA/BERTic) imaju non-contiguous tenzore koje
-    # safetensors odbija da sacuva ("You are trying to save a non contiguous
-    # tensor"). Vrati na stari torch.save format koji to dozvoljava.
+    # 3) HF Trainer/safetensors odbija non-contiguous tenzore (Electra/BERTić).
+    # Forsiraj stari torch.save format — setdefault NIJE dovoljan jer Trainer
+    # često eksplicitno šalje safe_serialization=True.
     _patch_save_pretrained()
 
 
@@ -57,7 +56,7 @@ def _patch_save_pretrained() -> None:
     original_save_pretrained = PreTrainedModel.save_pretrained
 
     def patched_save_pretrained(self, *args, **kwargs):
-        kwargs.setdefault("safe_serialization", False)
+        kwargs["safe_serialization"] = False
         return original_save_pretrained(self, *args, **kwargs)
 
     patched_save_pretrained._stance_patched = True
