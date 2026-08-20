@@ -15,6 +15,8 @@ phase3_model_training/
 
 Detalji: [`DOCS_TRAINING_INFERENCE.md`](DOCS_TRAINING_INFERENCE.md)
 
+**Glavni tekst za izveštaj (baseline + enkoder):** [`FAZA3_IZVESTAJ.md`](FAZA3_IZVESTAJ.md)
+
 ## Instalacija
 
 ```bash
