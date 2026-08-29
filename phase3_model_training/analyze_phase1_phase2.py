@@ -304,7 +304,7 @@ def plot_annotated_by_platform(rows: list[tuple[str, str, str]]) -> Path:
     by_plat: dict[str, Counter] = defaultdict(Counter)
     for _t, url, lab in rows:
         by_plat[detect_platform(url)][lab] += 1
-    names = [p for p in PLATFORMS if sum(by_plat[p].values())]
+    names = [p for p in ("Instagram", "X", "YouTube", "Facebook") if sum(by_plat[p].values())]
     bottoms = np.zeros(len(names))
     fig, ax = plt.subplots(figsize=(8.5, 4.8))
     x = np.arange(len(names))
