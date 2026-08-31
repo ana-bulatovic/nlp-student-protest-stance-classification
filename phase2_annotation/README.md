@@ -9,14 +9,17 @@ Glavni dokument za rad anotatora:
 
 - **[UPUTSTVA_ANOTACIJA.md](UPUTSTVA_ANOTACIJA.md)** — definicije oznaka, granični slučajevi, tok rada i **procedura kalibracije**
 
-Folder za kalibraciju (paralelna anotacija ~10% skupa):
+Folder za kalibraciju (paralelna anotacija 250 komentara):
 
 ```text
 calibration/
-  calibration_set.txt           # uzorak za nezavisnu anotaciju
-  ann_<ime>.txt                 # predaje anotatora (napravite vi)
-  disagreements_resolved.md     # dogovoreni sporni slučajevi
-  agreement_report.md           # κ / α i rezime
+  kalibracija_ana.txt           # isti uzorak, bez oznake
+  kalibracija_natalija.txt
+  kalibracija_nikola.txt
+  kalibracija_marija.txt
+  kalibracija_gold.txt          # iste linije sa originalnom oznakom (posle poređenja)
+  disagreements_resolved.md
+  agreement_report.md
 ```
 
 **Redosled:** pročitati uputstva → uraditi kalibraciju → tek onda finalna anotacija ostatka skupa.
