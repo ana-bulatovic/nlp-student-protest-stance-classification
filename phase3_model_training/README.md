@@ -93,7 +93,7 @@ python encoder/train_encoder.py --model mbert --epochs 5
 python encoder/train_encoder.py --model bertic --epochs 5 --final-only
 ```
 
-Podešavanja za GPU: `--batch-size` je podrazumevano **32** (za 24GB VRAM kartu poput RTX 3090 — smanji za manje GPU-ove ili CPU); `--bf16` uključuje bf16 mešanu preciznost (preporučeno na Ampere+ karticama umesto `--fp16`); TF32 i cuDNN autotune se sami uključe kad se detektuje Ampere+ GPU. `--dataloader-workers` menja broj DataLoader procesa (default 4 na CUDA, 0 na CPU).
+Podešavanja za GPU: `--batch-size` je podrazumevano **32** (za 24GB VRAM kartu poput RTX 3090 — smanji za manje GPU-ove ili CPU); `--bf16` uključuje bf16 mešanu preciznost (preporučeno na Ampere+ karticama umesto `--fp16`); TF32 i cuDNN autotune se sami uključe kad se detektuje Ampere+ GPU. `--dataloader-workers` menja broj DataLoader procesa (default 0 — podaci su već tokenizovani u memoriji, pa dodatni workeri ne pomažu, a na Windows-u samo usporavaju trening zbog ponovnog uvoza modula pri svakom evalu).
 
 Posle `--compare` skripta:
 

@@ -201,7 +201,11 @@ def parse_args() -> argparse.Namespace:
         "--dataloader-workers",
         type=int,
         default=None,
-        help="Broj DataLoader worker procesa (default: 4 na CUDA, 0 na CPU).",
+        help=(
+            "Broj DataLoader worker procesa (default: 0 — podaci su vec "
+            "tokenizovani u memoriji, a na Windows-u dodatni workeri samo "
+            "usporavaju trening zbog ponovnog uvoza modula pri svakom evalu)."
+        ),
     )
     return parser.parse_args()
 
@@ -260,7 +264,12 @@ def make_training_args(
 ):
     from transformers import TrainingArguments
 
-    workers = dataloader_workers if dataloader_workers is not None else (4 if use_cuda else 0)
+    # Podaci su vec tokenizovani u memoriji (StanceDataset.__getitem__ samo
+    # pravi tensor od gotovih lista) — worker procesi tu ne ubrzavaju nista,
+    # a na Windows-u (spawn, ne fork) svaki dodatni worker ponovo uvozi ceo
+    # modul (torch/transformers/sklearn) pri svakom novom DataLoader-u (npr.
+    # eval na kraju svake epohe), sto samo usporava trening. Zato default 0.
+    workers = dataloader_workers if dataloader_workers is not None else 0
     common = dict(
         output_dir=str(output_dir),
         num_train_epochs=epochs,
@@ -278,6 +287,12 @@ def make_training_args(
         bf16=bool(bf16 and use_cuda),
         dataloader_num_workers=workers,
         dataloader_pin_memory=use_cuda,
+        # Bez ovoga Trainer gasi i ponovo diže worker procese na svakoj epohi
+        # i na svakom evaluate() pozivu — na Windows-u (spawn, ne fork) to
+        # znači da svaki worker ponovo uvozi ceo modul (torch/transformers/
+        # sklearn) iz `train_encoder.py`, pa trening izgleda "zaglavljeno"
+        # i eval postane red veličine sporiji.
+        dataloader_persistent_workers=bool(workers > 0),
         overwrite_output_dir=True,
         disable_tqdm=False,
     )

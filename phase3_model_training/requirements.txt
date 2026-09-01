@@ -4,7 +4,10 @@
 #
 # GPU: ovaj fajl NE instalira CUDA torch. Posle requirements:
 #   pip uninstall torch torchvision torchaudio -y
-#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+#   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+#   (na RTX 3090 + noviji NVIDIA drajver, cu121 build ne radi kako treba —
+#   koristi cu128; ako imaš stariji drajver koji ne podržava CUDA 12.8,
+#   probaj cu121 umesto toga)
 torch>=2.0
 transformers>=4.36.0,<4.45
 huggingface-hub>=0.23.0,<1.0
