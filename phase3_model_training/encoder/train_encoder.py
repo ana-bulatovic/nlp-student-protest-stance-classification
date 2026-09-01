@@ -155,7 +155,12 @@ def parse_args() -> argparse.Namespace:
         help="Puni grid: bertic+mbert × epohe 2,3,4 (retko; za poređenje epoha)",
     )
     parser.add_argument("--folds", type=int, default=10)
-    parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=32,
+        help="Default 32 (RTX 3090, 24GB VRAM); smanji za manje GPU-ove ili CPU.",
+    )
     parser.add_argument("--lr", type=float, default=2e-5)
     parser.add_argument("--max-length", type=int, default=128)
     parser.add_argument("--seed", type=int, default=42)
@@ -173,7 +178,26 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--fp16",
         action="store_true",
-        help="Mešana preciznost (brže; na Windows+CUDA može da ruši proces).",
+        help="Mešana preciznost fp16 (brže; na Windows+CUDA može da ruši proces).",
+    )
+    parser.add_argument(
+        "--bf16",
+        action="store_true",
+        help=(
+            "Mešana preciznost bf16 — preporučeno na Ampere+ (RTX 3090): "
+            "isti raspon eksponenta kao fp32, bez gubitka skaliranja."
+        ),
+    )
+    parser.add_argument(
+        "--no-tf32",
+        action="store_true",
+        help="Isključi TF32 matmul/cudnn (podrazumevano uključeno na Ampere+ GPU).",
+    )
+    parser.add_argument(
+        "--dataloader-workers",
+        type=int,
+        default=None,
+        help="Broj DataLoader worker procesa (default: 4 na CUDA, 0 na CPU).",
     )
     return parser.parse_args()
 
@@ -210,14 +234,18 @@ def make_training_args(
     seed: int,
     use_cuda: bool,
     fp16: bool,
+    bf16: bool = False,
+    dataloader_workers: int | None = None,
 ):
     from transformers import TrainingArguments
 
+    workers = dataloader_workers if dataloader_workers is not None else (4 if use_cuda else 0)
     common = dict(
         output_dir=str(output_dir),
         num_train_epochs=epochs,
         per_device_train_batch_size=batch_size,
-        per_device_eval_batch_size=batch_size,
+        # Nema gradijenata pri evaluaciji — veći eval batch bez dodatne VRAM cene.
+        per_device_eval_batch_size=batch_size * 2 if use_cuda else batch_size,
         learning_rate=lr,
         weight_decay=0.01,
         warmup_ratio=0.1,
@@ -225,9 +253,10 @@ def make_training_args(
         save_strategy="no",
         report_to=[],
         seed=seed,
-        fp16=bool(fp16 and use_cuda),
-        dataloader_num_workers=0,
-        dataloader_pin_memory=False,
+        fp16=bool(fp16 and use_cuda and not bf16),
+        bf16=bool(bf16 and use_cuda),
+        dataloader_num_workers=workers,
+        dataloader_pin_memory=use_cuda,
         overwrite_output_dir=True,
         disable_tqdm=False,
     )
@@ -280,6 +309,8 @@ def train_one_fold(
     work_dir: Path,
     use_cuda: bool,
     fp16: bool = False,
+    bf16: bool = False,
+    dataloader_workers: int | None = None,
 ) -> list[str]:
     from transformers import Trainer
 
@@ -296,7 +327,10 @@ def train_one_fold(
     print(f"    treniram {len(train_ds)} primera, {epochs} epoha ...", flush=True)
     trainer = Trainer(
         model=model,
-        args=make_training_args(work_dir, epochs, batch_size, lr, seed, use_cuda, fp16),
+        args=make_training_args(
+            work_dir, epochs, batch_size, lr, seed, use_cuda, fp16,
+            bf16=bf16, dataloader_workers=dataloader_workers,
+        ),
         train_dataset=train_ds,
     )
     trainer.train()
@@ -340,6 +374,8 @@ def evaluate_encoder_config(
     scratch_dir: Path,
     use_cuda: bool,
     fp16: bool = False,
+    bf16: bool = False,
+    dataloader_workers: int | None = None,
 ) -> tuple[EncoderResult, str]:
     y = np.array(labels)
     skf = StratifiedKFold(n_splits=folds, shuffle=True, random_state=seed)
@@ -373,6 +409,8 @@ def evaluate_encoder_config(
             work_dir=work,
             use_cuda=use_cuda,
             fp16=fp16,
+            bf16=bf16,
+            dataloader_workers=dataloader_workers,
         )
         fold_macro = float(
             f1_score(
@@ -422,6 +460,8 @@ def train_full_and_save(
     use_cuda: bool,
     best_meta: dict,
     fp16: bool = False,
+    bf16: bool = False,
+    dataloader_workers: int | None = None,
 ) -> None:
     from transformers import Trainer
 
@@ -436,7 +476,10 @@ def train_full_and_save(
     )
     trainer = Trainer(
         model=model,
-        args=make_training_args(out_dir / "_train", epochs, batch_size, lr, seed, use_cuda, fp16),
+        args=make_training_args(
+            out_dir / "_train", epochs, batch_size, lr, seed, use_cuda, fp16,
+            bf16=bf16, dataloader_workers=dataloader_workers,
+        ),
         train_dataset=train_ds,
     )
     trainer.train()
@@ -502,9 +545,31 @@ def main() -> int:
     use_cuda = torch.cuda.is_available()
     print(f"Uredjaj: {'cuda' if use_cuda else 'cpu'}")
     print("Framework: Hugging Face Trainer (BERTić / mBERT)")
+
+    is_ampere_plus = False
     if use_cuda:
-        print(f"GPU: {torch.cuda.get_device_name(0)}", flush=True)
-        print("fp16: iskljucen. Ukljuci sa --fp16 ako zelis.", flush=True)
+        major, _minor = torch.cuda.get_device_capability(0)
+        is_ampere_plus = major >= 8  # RTX 3090 = sm_86
+        print(f"GPU: {torch.cuda.get_device_name(0)} (compute capability {major}.{_minor})", flush=True)
+        if not args.no_tf32 and is_ampere_plus:
+            torch.backends.cuda.matmul.allow_tf32 = True
+            torch.backends.cudnn.allow_tf32 = True
+            print("TF32: ukljucen (Ampere+ GPU detektovan).", flush=True)
+        torch.backends.cudnn.benchmark = True
+        if args.bf16 and not is_ampere_plus:
+            print(
+                "Upozorenje: --bf16 trazen ali GPU nije Ampere+; "
+                "moze biti sporije ili nepodrzano.",
+                flush=True,
+            )
+        if args.fp16 and args.bf16:
+            print("Napomena: i --fp16 i --bf16 prosledjeni — koristi se bf16.", flush=True)
+        if not args.fp16 and not args.bf16:
+            print(
+                "Mesana preciznost iskljucena. Ukljuci sa --bf16 (preporuceno na RTX 3090+) "
+                "ili --fp16.",
+                flush=True,
+            )
     else:
         print(
             "Upozorenje: PyTorch ne vidi CUDA.\n"
@@ -586,6 +651,8 @@ def main() -> int:
                 "note": "final-only (nema CV u ovom pokretanju)",
             },
             fp16=args.fp16,
+            bf16=args.bf16,
+            dataloader_workers=args.dataloader_workers,
         )
         print(f"Model za inferencu: {out_dir}")
         print(
@@ -681,6 +748,8 @@ def main() -> int:
                         scratch_dir=scratch,
                         use_cuda=use_cuda,
                         fp16=args.fp16,
+                        bf16=args.bf16,
+                        dataloader_workers=args.dataloader_workers,
                     )
                     print(
                         f"acc={result.accuracy:.4f}  macro_f1={result.macro_f1:.4f}  "
@@ -738,6 +807,8 @@ def main() -> int:
                     use_cuda=use_cuda,
                     best_meta=best,
                     fp16=args.fp16,
+                    bf16=args.bf16,
+                    dataloader_workers=args.dataloader_workers,
                 )
                 for r in results:
                     if r["model_key"] == model_key and r["epochs"] == best["epochs"]:
