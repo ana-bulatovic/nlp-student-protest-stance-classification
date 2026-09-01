@@ -17,7 +17,7 @@ import numpy as np
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PHASE3_DIR = SCRIPT_DIR.parent
-DEFAULT_JSON = SCRIPT_DIR / "output" / "encoder_results_compare_e4.json"
+DEFAULT_JSON = SCRIPT_DIR / "output" / "encoder_results_compare_e5.json"
 OUT_DIR = PHASE3_DIR / "output" / "encoder_analysis"
 REPORT = PHASE3_DIR / "ENCODER_IZVESTAJ.md"
 
@@ -187,6 +187,100 @@ def plot_confusion(r: dict, index: int) -> Path:
     return save_fig(f"0{3 + index}_cm_{key}.png")
 
 
+def plot_epoch_curve(bests: list[dict]) -> Path | None:
+    """Macro-F1 posle svake epohe (usrednjeno preko foldova) — obavezan grafik.
+
+    Odgovara na "zašto baš N epoha": ako neki red nema epoch_curve (npr.
+    --final-only bez CV), preskače se; ako nijedan nema, graf se ne pravi.
+    """
+    fig, ax = plt.subplots(figsize=(8.0, 4.8))
+    plotted = False
+    for r in bests:
+        curve = r.get("epoch_curve") or []
+        if not curve:
+            continue
+        key = r["model_key"]
+        epochs = [c["epoch"] for c in curve]
+        means = [float(c["macro_f1_mean"]) for c in curve]
+        stds = [float(c.get("macro_f1_std", 0.0)) for c in curve]
+        color = MODEL_COLORS.get(key, "#64748b")
+        ax.plot(
+            epochs, means, marker="o", label=MODEL_NAMES.get(key, key), color=color
+        )
+        lo = [m - s for m, s in zip(means, stds)]
+        hi = [m + s for m, s in zip(means, stds)]
+        ax.fill_between(epochs, lo, hi, color=color, alpha=0.15)
+        for e, m in zip(epochs, means):
+            ax.text(e, m + 0.006, f"{m:.3f}", ha="center", fontsize=8)
+        plotted = True
+    if not plotted:
+        plt.close(fig)
+        return None
+    ax.set_xlabel("epoha")
+    ax.set_ylabel("macro-F1 (mean ± std preko foldova)")
+    ax.set_title("Uticaj broja epoha na macro-F1")
+    ax.set_xticks(sorted({c["epoch"] for r in bests for c in (r.get("epoch_curve") or [])}))
+    ax.legend(frameon=False, loc="lower right")
+    return save_fig("07_epoch_curve.png")
+
+
+def plot_epoch_curve_detail(bests: list[dict]) -> list[Path]:
+    """Po jedan grafik po modelu: macro-F1 i accuracy po epohi, sa najboljom epohom.
+
+    Dopunjuje plot_epoch_curve (koji poredi modele na jednom grafiku) detaljnijim
+    prikazom po modelu — koristan kad se u tekstu izveštaja obrazlaže i tačnost,
+    ne samo macro-F1, i kad treba eksplicitno istaći koja je epoha najbolja.
+    """
+    figs: list[Path] = []
+    for r in bests:
+        curve = sorted(r.get("epoch_curve") or [], key=lambda c: c["epoch"])
+        if not curve:
+            continue
+        key = r["model_key"]
+        color = MODEL_COLORS.get(key, "#64748b")
+        epochs = [c["epoch"] for c in curve]
+        best = max(curve, key=lambda c: c["macro_f1_mean"])
+
+        fig, (ax_f1, ax_acc) = plt.subplots(1, 2, figsize=(10.5, 4.2))
+        for ax, metric_key, ylabel, title in (
+            (ax_f1, "macro_f1_mean", "macro-F1", "Macro F1 po epohama"),
+            (ax_acc, "accuracy_mean", "accuracy", "Accuracy po epohama"),
+        ):
+            vals = [float(c[metric_key]) for c in curve]
+            ax.plot(epochs, vals, marker="o", color=color)
+            if metric_key == "macro_f1_mean":
+                stds = [float(c.get("macro_f1_std", 0.0)) for c in curve]
+                lo = [v - s for v, s in zip(vals, stds)]
+                hi = [v + s for v, s in zip(vals, stds)]
+                ax.fill_between(epochs, lo, hi, color=color, alpha=0.15, label="±1 std")
+            best_val = float(best[metric_key])
+            ax.axvline(best["epoch"], color=color, linestyle="--", alpha=0.5)
+            ax.plot([best["epoch"]], [best_val], marker="o", color="#dc2626", zorder=5)
+            # Anotacija bi izašla iz okvira kad je najbolja epoha poslednja na x-osi.
+            near_right_edge = best["epoch"] >= epochs[-1] - (epochs[-1] - epochs[0]) * 0.15
+            ax.annotate(
+                f"Najbolja: epoha {best['epoch']} ({best_val:.4f})",
+                xy=(best["epoch"], best_val),
+                xytext=(-6 if near_right_edge else 0, 10),
+                textcoords="offset points",
+                ha="right" if near_right_edge else "center",
+                fontsize=8,
+                color="#dc2626",
+            )
+            ax.margins(y=0.18)
+            ax.set_xlabel("epoha")
+            ax.set_ylabel(ylabel)
+            ax.set_title(title)
+            ax.set_xticks(epochs)
+            if metric_key == "macro_f1_mean":
+                ax.legend(frameon=False, loc="lower right", fontsize=8)
+
+        fig.suptitle(f"Efekat broja epoha — {MODEL_NAMES.get(key, key)}")
+        fig.tight_layout()
+        figs.append(save_fig(f"08_epoch_detail_{key}.png"))
+    return figs
+
+
 def plot_ranking(rows: list[dict]) -> Path:
     ranked = sorted(rows, key=lambda r: float(r["macro_f1"]))
     labels = [
@@ -204,6 +298,89 @@ def plot_ranking(rows: list[dict]) -> Path:
     xmin = min(vals) - 0.03 if vals else 0
     ax.set_xlim(max(0, xmin), max(vals) * 1.06 if vals else 1)
     return save_fig("06_ranking_macro_f1.png")
+
+
+def epoch_curve_section(bests: list[dict], figs: list[Path]) -> list[str]:
+    """Obavezan deo izveštaja: tabela + narativ o uticaju broja epoha.
+
+    Zasnovano na EncoderResult.epoch_curve (macro-F1 posle svake epohe,
+    usrednjeno preko CV foldova) — v. train_encoder.aggregate_epoch_curves.
+    """
+    have_curve = [r for r in bests if r.get("epoch_curve")]
+    if not have_curve:
+        return [
+            "_Kriva macro-F1 po epohama nije dostupna u ovom JSON-u "
+            "(stariji run pre uvođenja `epoch_curve`-a — ponovo pokreni "
+            "`train_encoder.py` da bi se ova sekcija popunila)._",
+            "",
+        ]
+
+    lines: list[str] = []
+    if any(p.name == "07_epoch_curve.png" for p in figs):
+        lines += ["![Uticaj broja epoha](output/encoder_analysis/07_epoch_curve.png)", ""]
+
+    for r in have_curve:
+        key = r["model_key"]
+        name = MODEL_NAMES.get(key, key)
+        curve = sorted(r["epoch_curve"], key=lambda c: c["epoch"])
+        lines += md_table(
+            ["Epoha", "macro-F1 (mean)", "std", "min", "max"],
+            [
+                [
+                    str(c["epoch"]),
+                    f"{c['macro_f1_mean']:.4f}",
+                    f"{c['macro_f1_std']:.4f}",
+                    f"{c['macro_f1_min']:.4f}",
+                    f"{c['macro_f1_max']:.4f}",
+                ]
+                for c in curve
+            ],
+        )
+        lines.append("")
+
+        detail_name = f"08_epoch_detail_{key}.png"
+        if any(p.name == detail_name for p in figs):
+            lines += [f"![{name} po epohama](output/encoder_analysis/{detail_name})", ""]
+
+        if len(curve) == 2:
+            delta = curve[1]["macro_f1_mean"] - curve[0]["macro_f1_mean"]
+            lines += [
+                f"**{name}**: macro-F1 ide sa {curve[0]['macro_f1_mean']:.4f} "
+                f"(epoha {curve[0]['epoch']}) na {curve[1]['macro_f1_mean']:.4f} "
+                f"(epoha {curve[1]['epoch']}), Δ={delta:+.4f}.",
+                "",
+            ]
+        elif len(curve) > 2:
+            deltas = [
+                curve[i]["macro_f1_mean"] - curve[i - 1]["macro_f1_mean"]
+                for i in range(1, len(curve))
+            ]
+            last_delta = deltas[-1]
+            first_delta = deltas[0] if deltas[0] != 0 else 1e-9
+            plateauing = abs(last_delta) < 0.3 * abs(first_delta) or abs(last_delta) < 0.005
+            trend = (
+                "rast značajno usporava (zaravnjuje se)"
+                if plateauing
+                else "rast je i dalje primetan"
+            )
+            lines += [
+                f"**{name}**: macro-F1 ide sa {curve[0]['macro_f1_mean']:.4f} "
+                f"(epoha {curve[0]['epoch']}) na {curve[-1]['macro_f1_mean']:.4f} "
+                f"(epoha {curve[-1]['epoch']}); između poslednje dve epohe {trend} "
+                f"(Δ={last_delta:+.4f}, naspram Δ={first_delta:+.4f} između prve dve).",
+                "",
+            ]
+
+    epochs_used = {r.get("epochs") for r in have_curve}
+    lines += [
+        f"Konačan broj epoha korišćen za finalni model: "
+        f"**{', '.join(str(e) for e in sorted(epochs_used))}**. "
+        "Manji broj epoha ne bi dao modelu dovoljno vremena da se prilagodi "
+        "zadatku; veći broj, prema krivoj iznad, donosi sve manje poboljšanje "
+        "uz veći rizik od preobučavanja (overfitting) i duže treniranje.",
+        "",
+    ]
+    return lines
 
 
 def md_table(headers: list[str], rows: list[list[str]]) -> list[str]:
@@ -328,7 +505,10 @@ def build_report(payload: dict, figs: list[Path], bests: list[dict]) -> str:
             ],
         ),
         "",
-        "## 5. Matrice konfuzije",
+        "## 5. Uticaj broja epoha",
+        "",
+        *epoch_curve_section(bests, figs),
+        "## 6. Matrice konfuzije",
         "",
     ]
     for p in figs:
@@ -336,7 +516,7 @@ def build_report(payload: dict, figs: list[Path], bests: list[dict]) -> str:
             lines += [f"![{p.stem}](output/encoder_analysis/{p.name})", ""]
 
     lines += [
-        "## 6. Zaključak za izveštaj",
+        "## 7. Zaključak za izveštaj",
         "",
         f"- Pobednik po macro-F1: **{winner_name}** "
         f"(epochs={winner.get('epochs')}, macro-F1=**{winner['macro_f1']:.3f}**).",
@@ -344,7 +524,7 @@ def build_report(payload: dict, figs: list[Path], bests: list[dict]) -> str:
         f"**{min(LABELS, key=lambda l: winner.get('per_class_f1', {}).get(l, 1.0))}**.",
         "- Oba modela su sačuvana u odvojenim folderima; inferenca radi nezavisno.",
         "",
-        "## 7. Fajlovi i inferenca",
+        "## 8. Fajlovi i inferenca",
         "",
         f"- Sirovi rezultati: `{Path(str(payload.get('_json_path', 'encoder/output/*.json'))).as_posix()}`",
         "- Classification report-i: uz JSON (`.txt`)",
@@ -405,6 +585,10 @@ def generate(json_path: Path) -> int:
     ]
     for i, r in enumerate(bests, start=1):
         figs.append(plot_confusion(r, i))
+    epoch_fig = plot_epoch_curve(bests)
+    if epoch_fig is not None:
+        figs.append(epoch_fig)
+    figs.extend(plot_epoch_curve_detail(bests))
     figs.append(plot_ranking(rows))
 
     REPORT.write_text(build_report(payload, figs, bests), encoding="utf-8")

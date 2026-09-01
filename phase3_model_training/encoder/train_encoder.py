@@ -16,7 +16,7 @@ import sys
 import tempfile
 import warnings
 from collections import Counter
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
@@ -76,6 +76,10 @@ class EncoderResult:
     fold_macro_f1: list[float]
     confusion_matrix: list[list[int]]
     model_dir: str | None = None
+    # Macro-F1 (i accuracy) posle SVAKE epohe, usrednjeno preko foldova.
+    # Obavezan deo svakog CV pokretanja — ne opciono, jer izveštaj mora da
+    # obrazloži izbor broja epoha (v. UPUTSTVA_ANOTACIJA/ENCODER_IZVESTAJ §5).
+    epoch_curve: list[dict] = field(default_factory=list)
 
 
 class StanceDataset(Dataset):
@@ -96,15 +100,15 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Fine-tuning enkodera (HF Trainer): BERTić / mBERT. "
-            "Preporučeno: --compare (oba modela, 4 epohe, CV, odvojeni folderi + izveštaj)."
+            "Preporučeno: --compare (oba modela, 5 epoha, CV, odvojeni folderi + izveštaj)."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Primeri (iz phase3_model_training/):\n"
             "  python encoder/train_encoder.py --compare\n"
-            "      # bertic pa mbert, 4 epohe, 10-fold; čuva encoder_bertic/ i encoder_mbert/\n"
-            "  python encoder/train_encoder.py --model bertic --epochs 4\n"
-            "  python encoder/train_encoder.py --model mbert --epochs 4 --final-only\n"
+            "      # bertic pa mbert, 5 epoha, 10-fold; čuva encoder_bertic/ i encoder_mbert/\n"
+            "  python encoder/train_encoder.py --model bertic --epochs 5\n"
+            "  python encoder/train_encoder.py --model mbert --epochs 5 --final-only\n"
             "  python encoder/train_encoder.py --compare --quick\n"
         ),
     )
@@ -131,8 +135,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--epochs",
         type=int,
-        default=4,
-        help="Broj epoha. Default: 4",
+        default=5,
+        help="Broj epoha. Default: 5",
     )
     parser.add_argument(
         "--compare",
@@ -226,6 +230,22 @@ def encode_labels(labels: list[str]) -> list[int]:
     return [LABEL2ID[lab] for lab in labels]
 
 
+def build_compute_metrics():
+    label_ids = list(range(len(LABELS)))
+
+    def compute_metrics(eval_pred) -> dict:
+        logits, y_true = eval_pred
+        y_pred = np.argmax(logits, axis=-1)
+        return {
+            "macro_f1": float(
+                f1_score(y_true, y_pred, average="macro", labels=label_ids, zero_division=0)
+            ),
+            "accuracy": float(accuracy_score(y_true, y_pred)),
+        }
+
+    return compute_metrics
+
+
 def make_training_args(
     output_dir: Path,
     epochs: int,
@@ -236,6 +256,7 @@ def make_training_args(
     fp16: bool,
     bf16: bool = False,
     dataloader_workers: int | None = None,
+    eval_strategy: str = "no",
 ):
     from transformers import TrainingArguments
 
@@ -262,15 +283,19 @@ def make_training_args(
     )
     # Spreči Trainer da forsira safetensors pri eventualnom save-u.
     try:
-        return TrainingArguments(**common, eval_strategy="no", save_safetensors=False)
+        return TrainingArguments(
+            **common, eval_strategy=eval_strategy, save_safetensors=False
+        )
     except TypeError:
         try:
-            return TrainingArguments(**common, evaluation_strategy="no", save_safetensors=False)
+            return TrainingArguments(
+                **common, evaluation_strategy=eval_strategy, save_safetensors=False
+            )
         except TypeError:
             try:
-                return TrainingArguments(**common, eval_strategy="no")
+                return TrainingArguments(**common, eval_strategy=eval_strategy)
             except TypeError:
-                return TrainingArguments(**common, evaluation_strategy="no")
+                return TrainingArguments(**common, evaluation_strategy=eval_strategy)
 
 
 def load_backbone(model_key: str, max_length: int):
@@ -296,11 +321,32 @@ def tokenize_texts(tokenizer, texts: list[str], max_length: int) -> dict:
     )
 
 
+def extract_epoch_curve(trainer) -> list[dict]:
+    """Macro-F1/accuracy zabeleženi na kraju svake epohe (eval_strategy='epoch').
+
+    Obavezan deo svakog fold treninga — ovo je izvor podataka za diskusiju
+    "uticaj broja epoha" u izveštaju (koliko epoha zaista doprinosi rezultatu).
+    """
+    curve: list[dict] = []
+    for entry in trainer.state.log_history:
+        if "eval_macro_f1" not in entry:
+            continue
+        curve.append(
+            {
+                "epoch": int(round(entry["epoch"])),
+                "macro_f1": float(entry["eval_macro_f1"]),
+                "accuracy": float(entry.get("eval_accuracy", float("nan"))),
+            }
+        )
+    return curve
+
+
 def train_one_fold(
     model_key: str,
     train_texts: list[str],
     train_labels: list[str],
     test_texts: list[str],
+    test_labels: list[str],
     epochs: int,
     batch_size: int,
     lr: float,
@@ -311,7 +357,7 @@ def train_one_fold(
     fp16: bool = False,
     bf16: bool = False,
     dataloader_workers: int | None = None,
-) -> list[str]:
+) -> tuple[list[str], list[dict]]:
     from transformers import Trainer
 
     if work_dir.exists():
@@ -324,16 +370,26 @@ def train_one_fold(
         tokenize_texts(tokenizer, train_texts, max_length),
         encode_labels(train_labels),
     )
+    # Held-out fold služi i kao eval skup — omogućava praćenje macro-F1 posle
+    # svake epohe u OVOM istom treningu, bez odvojenih punih pokretanja po
+    # broju epoha (obavezno, v. extract_epoch_curve).
+    eval_ds = StanceDataset(
+        tokenize_texts(tokenizer, test_texts, max_length),
+        encode_labels(test_labels),
+    )
     print(f"    treniram {len(train_ds)} primera, {epochs} epoha ...", flush=True)
     trainer = Trainer(
         model=model,
         args=make_training_args(
             work_dir, epochs, batch_size, lr, seed, use_cuda, fp16,
-            bf16=bf16, dataloader_workers=dataloader_workers,
+            bf16=bf16, dataloader_workers=dataloader_workers, eval_strategy="epoch",
         ),
         train_dataset=train_ds,
+        eval_dataset=eval_ds,
+        compute_metrics=build_compute_metrics(),
     )
     trainer.train()
+    epoch_curve = extract_epoch_curve(trainer)
     print("    predikcija ...", flush=True)
 
     model.eval()
@@ -358,7 +414,7 @@ def train_one_fold(
     if use_cuda:
         torch.cuda.empty_cache()
     shutil.rmtree(work_dir, ignore_errors=True)
-    return preds
+    return preds, epoch_curve
 
 
 def evaluate_encoder_config(
@@ -382,6 +438,7 @@ def evaluate_encoder_config(
     all_true: list[str] = []
     all_pred: list[str] = []
     fold_scores: list[float] = []
+    fold_curves: list[list[dict]] = []
     model_name = MODEL_PRESETS[model_key]["model_name"]
 
     for fold_i, (train_idx, test_idx) in enumerate(skf.split(texts, y), 1):
@@ -396,11 +453,12 @@ def evaluate_encoder_config(
         test_texts = [texts[i] for i in test_idx]
         test_labels = [labels[i] for i in test_idx]
         work = scratch_dir / f"{model_key}_e{epochs}_fold{fold_i}"
-        preds = train_one_fold(
+        preds, epoch_curve = train_one_fold(
             model_key=model_key,
             train_texts=train_texts,
             train_labels=train_labels,
             test_texts=test_texts,
+            test_labels=test_labels,
             epochs=epochs,
             batch_size=batch_size,
             lr=lr,
@@ -412,6 +470,7 @@ def evaluate_encoder_config(
             bf16=bf16,
             dataloader_workers=dataloader_workers,
         )
+        fold_curves.append(epoch_curve)
         fold_macro = float(
             f1_score(
                 test_labels, preds, average="macro", labels=list(LABELS), zero_division=0
@@ -423,6 +482,15 @@ def evaluate_encoder_config(
         print(f"    fold macro-F1={fold_macro:.4f}", flush=True)
 
     metrics = compute_metrics_arrays(all_true, all_pred)
+    epoch_curve_summary = aggregate_epoch_curves(fold_curves)
+    print(f"  Uticaj broja epoha ({model_key}, usrednjeno preko {folds} foldova):", flush=True)
+    for row in epoch_curve_summary:
+        print(
+            f"    epoha {row['epoch']}: macro-F1={row['macro_f1_mean']:.4f} "
+            f"(std={row['macro_f1_std']:.4f}, min={row['macro_f1_min']:.4f}, "
+            f"max={row['macro_f1_max']:.4f})",
+            flush=True,
+        )
     result = EncoderResult(
         model_key=model_key,
         model_name=model_name,
@@ -433,8 +501,39 @@ def evaluate_encoder_config(
         per_class_f1=metrics["per_class_f1"],
         fold_macro_f1=fold_scores,
         confusion_matrix=metrics["confusion_matrix"],
+        epoch_curve=epoch_curve_summary,
     )
     return result, metrics["report"]
+
+
+def aggregate_epoch_curves(fold_curves: list[list[dict]]) -> list[dict]:
+    """Usrednjava per-epoch macro-F1/accuracy preko foldova.
+
+    Obavezan izlaz svakog CV pokretanja (v. EncoderResult.epoch_curve) —
+    daje podatke za obrazloženje broja epoha u izveštaju, bez posebnih
+    dodatnih pokretanja treninga po broju epoha.
+    """
+    by_epoch: dict[int, list[dict]] = {}
+    for curve in fold_curves:
+        for row in curve:
+            by_epoch.setdefault(row["epoch"], []).append(row)
+    summary: list[dict] = []
+    for epoch in sorted(by_epoch):
+        rows = by_epoch[epoch]
+        f1_vals = [r["macro_f1"] for r in rows]
+        acc_vals = [r["accuracy"] for r in rows]
+        summary.append(
+            {
+                "epoch": epoch,
+                "n_folds": len(rows),
+                "macro_f1_mean": float(np.mean(f1_vals)),
+                "macro_f1_std": float(np.std(f1_vals)),
+                "macro_f1_min": float(np.min(f1_vals)),
+                "macro_f1_max": float(np.max(f1_vals)),
+                "accuracy_mean": float(np.mean(acc_vals)),
+            }
+        )
+    return summary
 
 
 def make_weights_contiguous(model) -> None:
