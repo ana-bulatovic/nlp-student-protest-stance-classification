@@ -73,25 +73,27 @@ python baseline/infer_baseline.py -t "Pumpaj!"
 
 **Važno (Windows + torch 2.0):** ne instaliraj `transformers` 5.x — koristi `requirements.txt`.
 
-Pokreni iz `phase3_model_training/`. Preporučeni tok: **BERTić pa mBERT**, **4 epohe**, **10-fold CV**, modeli u **dva foldera**, pa automatsko poređenje + grafike.
+Pokreni iz `phase3_model_training/`. Preporučeni tok: **BERTić pa mBERT**, **5 epoha**, **10-fold CV**, modeli u **dva foldera**, pa automatsko poređenje + grafike. Svaki CV trening obavezno beleži macro-F1/accuracy posle **svake** epohe (ne samo poslednje), pa izveštaj uvek ima i analizu uticaja broja epoha, bez dodatnih pokretanja.
 
 ```bash
 # 1) brzi smoke test (oba modela, 2 folda, 1 epoha)
 python encoder/train_encoder.py --compare --quick
 
-# 2) puni uporedni trening (bertic → mbert, 4 epohe, 10-fold; čuva oba modela)
+# 2) puni uporedni trening (bertic → mbert, 5 epoha, 10-fold; čuva oba modela)
 python encoder/train_encoder.py --compare
 
 # ako se prekine posle bertic CV (JSON već postoji): nastavi bez ponovnog CV-a za bertic
 python encoder/train_encoder.py --compare --continue
 
 # samo jedan model (ako treba odvojeno)
-python encoder/train_encoder.py --model bertic --epochs 4
-python encoder/train_encoder.py --model mbert --epochs 4
+python encoder/train_encoder.py --model bertic --epochs 5
+python encoder/train_encoder.py --model mbert --epochs 5
 
 # samo sačuvaj model bez CV
-python encoder/train_encoder.py --model bertic --epochs 4 --final-only
+python encoder/train_encoder.py --model bertic --epochs 5 --final-only
 ```
+
+Podešavanja za GPU: `--batch-size` je podrazumevano **32** (za 24GB VRAM kartu poput RTX 3090 — smanji za manje GPU-ove ili CPU); `--bf16` uključuje bf16 mešanu preciznost (preporučeno na Ampere+ karticama umesto `--fp16`); TF32 i cuDNN autotune se sami uključe kad se detektuje Ampere+ GPU. `--dataloader-workers` menja broj DataLoader procesa (default 0 — podaci su već tokenizovani u memoriji, pa dodatni workeri ne pomažu, a na Windows-u samo usporavaju trening zbog ponovnog uvoza modula pri svakom evalu).
 
 Posle `--compare` skripta:
 
@@ -103,8 +105,8 @@ Posle `--compare` skripta:
 Izlaz za izveštaj:
 
 - `ENCODER_IZVESTAJ.md`
-- `output/encoder_analysis/*.png` — poređenje metrika, F1 po klasi, foldovi, matrice konfuzije, ranking
-- JSON: `encoder/output/encoder_results_compare_e4.json` (+ `.txt` classification report)
+- `output/encoder_analysis/*.png` — poređenje metrika, F1 po klasi, foldovi, matrice konfuzije, ranking, **uticaj broja epoha** (zbirni grafik za oba modela + po jedan detaljan grafik po modelu sa macro-F1 i accuracy po epohi i označenom najboljom epohom)
+- JSON: `encoder/output/encoder_results_compare_e5.json` (+ `.txt` classification report)
 
 Inferenca (oba modela):
 

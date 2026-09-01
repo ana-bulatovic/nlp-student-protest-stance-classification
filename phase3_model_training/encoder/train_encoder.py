@@ -16,7 +16,7 @@ import sys
 import tempfile
 import warnings
 from collections import Counter
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 os.environ.setdefault("TF_ENABLE_ONEDNN_OPTS", "0")
@@ -76,6 +76,69 @@ class EncoderResult:
     fold_macro_f1: list[float]
     confusion_matrix: list[list[int]]
     model_dir: str | None = None
+    # Macro-F1 (i accuracy) posle SVAKE epohe, usrednjeno preko foldova.
+    # Obavezan deo svakog CV pokretanja — ne opciono, jer izveštaj mora da
+    # obrazloži izbor broja epoha (v. UPUTSTVA_ANOTACIJA/ENCODER_IZVESTAJ §5).
+    epoch_curve: list[dict] = field(default_factory=list)
+
+
+def compute_class_weights(train_labels: list[str], scheme: str) -> list[float] | None:
+    """Težine klasa za CrossEntropyLoss, po redosledu LABELS.
+
+    "balanced" koristi sklearn formulu: n / (k * count_c) — retke klase dobijaju
+    veću težinu. NEUTRAL je najmanja klasa (~23% skupa) i ima najslabiji F1, pa
+    je ovo glavni razlog postojanja opcije.
+
+    Težine se UVEK računaju samo iz trening splita (u CV: bez held-out folda),
+    inače bi raspodela test dela curila u trening.
+    """
+    if scheme == "none":
+        return None
+    counts = Counter(train_labels)
+    n = len(train_labels)
+    k = len(LABELS)
+    weights: list[float] = []
+    for lab in LABELS:
+        c = counts.get(lab, 0)
+        # Klasa koja ne postoji u ovom splitu ne sme da da deljenje nulom;
+        # težina 0 je ispravna jer nema ni jednog primera da doprinese gubitku.
+        weights.append(float(n / (k * c)) if c else 0.0)
+    return weights
+
+
+def make_weighted_trainer_cls():
+    """Trainer sa težinama klasa u CrossEntropyLoss.
+
+    Definiše se lenjo (posle importa transformers) jer se Trainer uvozi tek u
+    funkcijama — modul se učitava i na mašinama bez transformers-a.
+    """
+    from transformers import Trainer
+
+    class _WeightedLossTrainer(Trainer):
+        def __init__(self, *args, class_weights: list[float] | None = None, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._class_weights = class_weights
+
+        def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+            # **kwargs: transformers >=4.46 dodaje num_items_in_batch.
+            if self._class_weights is None:
+                return super().compute_loss(
+                    model, inputs, return_outputs=return_outputs, **kwargs
+                )
+            labels = inputs.pop("labels")
+            outputs = model(**inputs)
+            logits = outputs.logits
+            weight = torch.tensor(
+                self._class_weights, dtype=logits.dtype, device=logits.device
+            )
+            loss = torch.nn.functional.cross_entropy(
+                logits.view(-1, len(LABELS)), labels.view(-1), weight=weight
+            )
+            # Trainer dalje očekuje 'labels' u inputs pri return_outputs=True.
+            inputs["labels"] = labels
+            return (loss, outputs) if return_outputs else loss
+
+    return _WeightedLossTrainer
 
 
 class StanceDataset(Dataset):
@@ -96,16 +159,18 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Fine-tuning enkodera (HF Trainer): BERTić / mBERT. "
-            "Preporučeno: --compare (oba modela, 4 epohe, CV, odvojeni folderi + izveštaj)."
+            "Preporučeno: --compare (oba modela, 5 epoha, CV, odvojeni folderi + izveštaj)."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Primeri (iz phase3_model_training/):\n"
             "  python encoder/train_encoder.py --compare\n"
-            "      # bertic pa mbert, 4 epohe, 10-fold; čuva encoder_bertic/ i encoder_mbert/\n"
-            "  python encoder/train_encoder.py --model bertic --epochs 4\n"
-            "  python encoder/train_encoder.py --model mbert --epochs 4 --final-only\n"
+            "      # bertic pa mbert, 5 epoha, 10-fold; čuva encoder_bertic/ i encoder_mbert/\n"
+            "  python encoder/train_encoder.py --model bertic --epochs 5\n"
+            "  python encoder/train_encoder.py --model mbert --epochs 5 --final-only\n"
             "  python encoder/train_encoder.py --compare --quick\n"
+            "  python encoder/train_encoder.py --compare --bf16 --class-weights balanced\n"
+            "      # tezine klasa u gubitku (pomaze najmanjoj klasi, NEUTRAL)\n"
         ),
     )
     parser.add_argument("--data", type=Path, default=DEFAULT_DATA)
@@ -131,8 +196,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--epochs",
         type=int,
-        default=4,
-        help="Broj epoha. Default: 4",
+        default=5,
+        help="Broj epoha. Default: 5",
     )
     parser.add_argument(
         "--compare",
@@ -155,7 +220,22 @@ def parse_args() -> argparse.Namespace:
         help="Puni grid: bertic+mbert × epohe 2,3,4 (retko; za poređenje epoha)",
     )
     parser.add_argument("--folds", type=int, default=10)
-    parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=32,
+        help="Default 32 (RTX 3090, 24GB VRAM); smanji za manje GPU-ove ili CPU.",
+    )
+    parser.add_argument(
+        "--class-weights",
+        type=str,
+        default="none",
+        choices=["none", "balanced"],
+        help=(
+            "Težine klasa u gubitku. 'balanced' = n/(k*count) po klasi — "
+            "pomaže najslabijoj/najmanjoj klasi (NEUTRAL). Default: none."
+        ),
+    )
     parser.add_argument("--lr", type=float, default=2e-5)
     parser.add_argument("--max-length", type=int, default=128)
     parser.add_argument("--seed", type=int, default=42)
@@ -173,7 +253,30 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--fp16",
         action="store_true",
-        help="Mešana preciznost (brže; na Windows+CUDA može da ruši proces).",
+        help="Mešana preciznost fp16 (brže; na Windows+CUDA može da ruši proces).",
+    )
+    parser.add_argument(
+        "--bf16",
+        action="store_true",
+        help=(
+            "Mešana preciznost bf16 — preporučeno na Ampere+ (RTX 3090): "
+            "isti raspon eksponenta kao fp32, bez gubitka skaliranja."
+        ),
+    )
+    parser.add_argument(
+        "--no-tf32",
+        action="store_true",
+        help="Isključi TF32 matmul/cudnn (podrazumevano uključeno na Ampere+ GPU).",
+    )
+    parser.add_argument(
+        "--dataloader-workers",
+        type=int,
+        default=None,
+        help=(
+            "Broj DataLoader worker procesa (default: 0 — podaci su vec "
+            "tokenizovani u memoriji, a na Windows-u dodatni workeri samo "
+            "usporavaju trening zbog ponovnog uvoza modula pri svakom evalu)."
+        ),
     )
     return parser.parse_args()
 
@@ -202,6 +305,22 @@ def encode_labels(labels: list[str]) -> list[int]:
     return [LABEL2ID[lab] for lab in labels]
 
 
+def build_compute_metrics():
+    label_ids = list(range(len(LABELS)))
+
+    def compute_metrics(eval_pred) -> dict:
+        logits, y_true = eval_pred
+        y_pred = np.argmax(logits, axis=-1)
+        return {
+            "macro_f1": float(
+                f1_score(y_true, y_pred, average="macro", labels=label_ids, zero_division=0)
+            ),
+            "accuracy": float(accuracy_score(y_true, y_pred)),
+        }
+
+    return compute_metrics
+
+
 def make_training_args(
     output_dir: Path,
     epochs: int,
@@ -210,14 +329,24 @@ def make_training_args(
     seed: int,
     use_cuda: bool,
     fp16: bool,
+    bf16: bool = False,
+    dataloader_workers: int | None = None,
+    eval_strategy: str = "no",
 ):
     from transformers import TrainingArguments
 
+    # Podaci su vec tokenizovani u memoriji (StanceDataset.__getitem__ samo
+    # pravi tensor od gotovih lista) — worker procesi tu ne ubrzavaju nista,
+    # a na Windows-u (spawn, ne fork) svaki dodatni worker ponovo uvozi ceo
+    # modul (torch/transformers/sklearn) pri svakom novom DataLoader-u (npr.
+    # eval na kraju svake epohe), sto samo usporava trening. Zato default 0.
+    workers = dataloader_workers if dataloader_workers is not None else 0
     common = dict(
         output_dir=str(output_dir),
         num_train_epochs=epochs,
         per_device_train_batch_size=batch_size,
-        per_device_eval_batch_size=batch_size,
+        # Nema gradijenata pri evaluaciji — veći eval batch bez dodatne VRAM cene.
+        per_device_eval_batch_size=batch_size * 2 if use_cuda else batch_size,
         learning_rate=lr,
         weight_decay=0.01,
         warmup_ratio=0.1,
@@ -225,23 +354,34 @@ def make_training_args(
         save_strategy="no",
         report_to=[],
         seed=seed,
-        fp16=bool(fp16 and use_cuda),
-        dataloader_num_workers=0,
-        dataloader_pin_memory=False,
+        fp16=bool(fp16 and use_cuda and not bf16),
+        bf16=bool(bf16 and use_cuda),
+        dataloader_num_workers=workers,
+        dataloader_pin_memory=use_cuda,
+        # Bez ovoga Trainer gasi i ponovo diže worker procese na svakoj epohi
+        # i na svakom evaluate() pozivu — na Windows-u (spawn, ne fork) to
+        # znači da svaki worker ponovo uvozi ceo modul (torch/transformers/
+        # sklearn) iz `train_encoder.py`, pa trening izgleda "zaglavljeno"
+        # i eval postane red veličine sporiji.
+        dataloader_persistent_workers=bool(workers > 0),
         overwrite_output_dir=True,
         disable_tqdm=False,
     )
     # Spreči Trainer da forsira safetensors pri eventualnom save-u.
     try:
-        return TrainingArguments(**common, eval_strategy="no", save_safetensors=False)
+        return TrainingArguments(
+            **common, eval_strategy=eval_strategy, save_safetensors=False
+        )
     except TypeError:
         try:
-            return TrainingArguments(**common, evaluation_strategy="no", save_safetensors=False)
+            return TrainingArguments(
+                **common, evaluation_strategy=eval_strategy, save_safetensors=False
+            )
         except TypeError:
             try:
-                return TrainingArguments(**common, eval_strategy="no")
+                return TrainingArguments(**common, eval_strategy=eval_strategy)
             except TypeError:
-                return TrainingArguments(**common, evaluation_strategy="no")
+                return TrainingArguments(**common, evaluation_strategy=eval_strategy)
 
 
 def load_backbone(model_key: str, max_length: int):
@@ -267,11 +407,32 @@ def tokenize_texts(tokenizer, texts: list[str], max_length: int) -> dict:
     )
 
 
+def extract_epoch_curve(trainer) -> list[dict]:
+    """Macro-F1/accuracy zabeleženi na kraju svake epohe (eval_strategy='epoch').
+
+    Obavezan deo svakog fold treninga — ovo je izvor podataka za diskusiju
+    "uticaj broja epoha" u izveštaju (koliko epoha zaista doprinosi rezultatu).
+    """
+    curve: list[dict] = []
+    for entry in trainer.state.log_history:
+        if "eval_macro_f1" not in entry:
+            continue
+        curve.append(
+            {
+                "epoch": int(round(entry["epoch"])),
+                "macro_f1": float(entry["eval_macro_f1"]),
+                "accuracy": float(entry.get("eval_accuracy", float("nan"))),
+            }
+        )
+    return curve
+
+
 def train_one_fold(
     model_key: str,
     train_texts: list[str],
     train_labels: list[str],
     test_texts: list[str],
+    test_labels: list[str],
     epochs: int,
     batch_size: int,
     lr: float,
@@ -280,9 +441,10 @@ def train_one_fold(
     work_dir: Path,
     use_cuda: bool,
     fp16: bool = False,
-) -> list[str]:
-    from transformers import Trainer
-
+    bf16: bool = False,
+    dataloader_workers: int | None = None,
+    class_weights: str = "none",
+) -> tuple[list[str], list[dict]]:
     if work_dir.exists():
         shutil.rmtree(work_dir, ignore_errors=True)
     work_dir.mkdir(parents=True, exist_ok=True)
@@ -293,13 +455,36 @@ def train_one_fold(
         tokenize_texts(tokenizer, train_texts, max_length),
         encode_labels(train_labels),
     )
+    # Held-out fold služi i kao eval skup — omogućava praćenje macro-F1 posle
+    # svake epohe u OVOM istom treningu, bez odvojenih punih pokretanja po
+    # broju epoha (obavezno, v. extract_epoch_curve).
+    eval_ds = StanceDataset(
+        tokenize_texts(tokenizer, test_texts, max_length),
+        encode_labels(test_labels),
+    )
     print(f"    treniram {len(train_ds)} primera, {epochs} epoha ...", flush=True)
-    trainer = Trainer(
+    # Težine SAMO iz trening dela ovog folda — held-out fold ne sme da utiče.
+    weights = compute_class_weights(train_labels, class_weights)
+    if weights is not None:
+        print(
+            "    tezine klasa: "
+            + ", ".join(f"{lab}={w:.3f}" for lab, w in zip(LABELS, weights)),
+            flush=True,
+        )
+    trainer_cls = make_weighted_trainer_cls()
+    trainer = trainer_cls(
         model=model,
-        args=make_training_args(work_dir, epochs, batch_size, lr, seed, use_cuda, fp16),
+        args=make_training_args(
+            work_dir, epochs, batch_size, lr, seed, use_cuda, fp16,
+            bf16=bf16, dataloader_workers=dataloader_workers, eval_strategy="epoch",
+        ),
         train_dataset=train_ds,
+        eval_dataset=eval_ds,
+        compute_metrics=build_compute_metrics(),
+        class_weights=weights,
     )
     trainer.train()
+    epoch_curve = extract_epoch_curve(trainer)
     print("    predikcija ...", flush=True)
 
     model.eval()
@@ -324,7 +509,7 @@ def train_one_fold(
     if use_cuda:
         torch.cuda.empty_cache()
     shutil.rmtree(work_dir, ignore_errors=True)
-    return preds
+    return preds, epoch_curve
 
 
 def evaluate_encoder_config(
@@ -340,12 +525,16 @@ def evaluate_encoder_config(
     scratch_dir: Path,
     use_cuda: bool,
     fp16: bool = False,
+    bf16: bool = False,
+    dataloader_workers: int | None = None,
+    class_weights: str = "none",
 ) -> tuple[EncoderResult, str]:
     y = np.array(labels)
     skf = StratifiedKFold(n_splits=folds, shuffle=True, random_state=seed)
     all_true: list[str] = []
     all_pred: list[str] = []
     fold_scores: list[float] = []
+    fold_curves: list[list[dict]] = []
     model_name = MODEL_PRESETS[model_key]["model_name"]
 
     for fold_i, (train_idx, test_idx) in enumerate(skf.split(texts, y), 1):
@@ -360,11 +549,12 @@ def evaluate_encoder_config(
         test_texts = [texts[i] for i in test_idx]
         test_labels = [labels[i] for i in test_idx]
         work = scratch_dir / f"{model_key}_e{epochs}_fold{fold_i}"
-        preds = train_one_fold(
+        preds, epoch_curve = train_one_fold(
             model_key=model_key,
             train_texts=train_texts,
             train_labels=train_labels,
             test_texts=test_texts,
+            test_labels=test_labels,
             epochs=epochs,
             batch_size=batch_size,
             lr=lr,
@@ -373,7 +563,11 @@ def evaluate_encoder_config(
             work_dir=work,
             use_cuda=use_cuda,
             fp16=fp16,
+            bf16=bf16,
+            dataloader_workers=dataloader_workers,
+            class_weights=class_weights,
         )
+        fold_curves.append(epoch_curve)
         fold_macro = float(
             f1_score(
                 test_labels, preds, average="macro", labels=list(LABELS), zero_division=0
@@ -385,6 +579,15 @@ def evaluate_encoder_config(
         print(f"    fold macro-F1={fold_macro:.4f}", flush=True)
 
     metrics = compute_metrics_arrays(all_true, all_pred)
+    epoch_curve_summary = aggregate_epoch_curves(fold_curves)
+    print(f"  Uticaj broja epoha ({model_key}, usrednjeno preko {folds} foldova):", flush=True)
+    for row in epoch_curve_summary:
+        print(
+            f"    epoha {row['epoch']}: macro-F1={row['macro_f1_mean']:.4f} "
+            f"(std={row['macro_f1_std']:.4f}, min={row['macro_f1_min']:.4f}, "
+            f"max={row['macro_f1_max']:.4f})",
+            flush=True,
+        )
     result = EncoderResult(
         model_key=model_key,
         model_name=model_name,
@@ -395,8 +598,39 @@ def evaluate_encoder_config(
         per_class_f1=metrics["per_class_f1"],
         fold_macro_f1=fold_scores,
         confusion_matrix=metrics["confusion_matrix"],
+        epoch_curve=epoch_curve_summary,
     )
     return result, metrics["report"]
+
+
+def aggregate_epoch_curves(fold_curves: list[list[dict]]) -> list[dict]:
+    """Usrednjava per-epoch macro-F1/accuracy preko foldova.
+
+    Obavezan izlaz svakog CV pokretanja (v. EncoderResult.epoch_curve) —
+    daje podatke za obrazloženje broja epoha u izveštaju, bez posebnih
+    dodatnih pokretanja treninga po broju epoha.
+    """
+    by_epoch: dict[int, list[dict]] = {}
+    for curve in fold_curves:
+        for row in curve:
+            by_epoch.setdefault(row["epoch"], []).append(row)
+    summary: list[dict] = []
+    for epoch in sorted(by_epoch):
+        rows = by_epoch[epoch]
+        f1_vals = [r["macro_f1"] for r in rows]
+        acc_vals = [r["accuracy"] for r in rows]
+        summary.append(
+            {
+                "epoch": epoch,
+                "n_folds": len(rows),
+                "macro_f1_mean": float(np.mean(f1_vals)),
+                "macro_f1_std": float(np.std(f1_vals)),
+                "macro_f1_min": float(np.min(f1_vals)),
+                "macro_f1_max": float(np.max(f1_vals)),
+                "accuracy_mean": float(np.mean(acc_vals)),
+            }
+        )
+    return summary
 
 
 def make_weights_contiguous(model) -> None:
@@ -422,9 +656,10 @@ def train_full_and_save(
     use_cuda: bool,
     best_meta: dict,
     fp16: bool = False,
+    bf16: bool = False,
+    dataloader_workers: int | None = None,
+    class_weights: str = "none",
 ) -> None:
-    from transformers import Trainer
-
     if out_dir.exists():
         shutil.rmtree(out_dir, ignore_errors=True)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -434,10 +669,16 @@ def train_full_and_save(
         tokenize_texts(tokenizer, texts, max_length),
         encode_labels(labels),
     )
-    trainer = Trainer(
+    weights = compute_class_weights(labels, class_weights)
+    trainer_cls = make_weighted_trainer_cls()
+    trainer = trainer_cls(
         model=model,
-        args=make_training_args(out_dir / "_train", epochs, batch_size, lr, seed, use_cuda, fp16),
+        args=make_training_args(
+            out_dir / "_train", epochs, batch_size, lr, seed, use_cuda, fp16,
+            bf16=bf16, dataloader_workers=dataloader_workers,
+        ),
         train_dataset=train_ds,
+        class_weights=weights,
     )
     trainer.train()
     make_weights_contiguous(model)
@@ -454,6 +695,8 @@ def train_full_and_save(
         "epochs": epochs,
         "labels": list(LABELS),
         "max_length": max_length,
+        "class_weights": class_weights,
+        "class_weight_values": weights,
         "best_config": best_meta,
         "cv_macro_f1": best_meta.get("macro_f1"),
     }
@@ -502,9 +745,31 @@ def main() -> int:
     use_cuda = torch.cuda.is_available()
     print(f"Uredjaj: {'cuda' if use_cuda else 'cpu'}")
     print("Framework: Hugging Face Trainer (BERTić / mBERT)")
+
+    is_ampere_plus = False
     if use_cuda:
-        print(f"GPU: {torch.cuda.get_device_name(0)}", flush=True)
-        print("fp16: iskljucen. Ukljuci sa --fp16 ako zelis.", flush=True)
+        major, _minor = torch.cuda.get_device_capability(0)
+        is_ampere_plus = major >= 8  # RTX 3090 = sm_86
+        print(f"GPU: {torch.cuda.get_device_name(0)} (compute capability {major}.{_minor})", flush=True)
+        if not args.no_tf32 and is_ampere_plus:
+            torch.backends.cuda.matmul.allow_tf32 = True
+            torch.backends.cudnn.allow_tf32 = True
+            print("TF32: ukljucen (Ampere+ GPU detektovan).", flush=True)
+        torch.backends.cudnn.benchmark = True
+        if args.bf16 and not is_ampere_plus:
+            print(
+                "Upozorenje: --bf16 trazen ali GPU nije Ampere+; "
+                "moze biti sporije ili nepodrzano.",
+                flush=True,
+            )
+        if args.fp16 and args.bf16:
+            print("Napomena: i --fp16 i --bf16 prosledjeni — koristi se bf16.", flush=True)
+        if not args.fp16 and not args.bf16:
+            print(
+                "Mesana preciznost iskljucena. Ukljuci sa --bf16 (preporuceno na RTX 3090+) "
+                "ili --fp16.",
+                flush=True,
+            )
     else:
         print(
             "Upozorenje: PyTorch ne vidi CUDA.\n"
@@ -586,6 +851,9 @@ def main() -> int:
                 "note": "final-only (nema CV u ovom pokretanju)",
             },
             fp16=args.fp16,
+            bf16=args.bf16,
+            dataloader_workers=args.dataloader_workers,
+            class_weights=args.class_weights,
         )
         print(f"Model za inferencu: {out_dir}")
         print(
@@ -641,6 +909,7 @@ def main() -> int:
             "folds": folds,
             "batch_size": batch_size,
             "lr": args.lr,
+            "class_weights": args.class_weights,
             "max_length": args.max_length,
             "device": "cuda" if use_cuda else "cpu",
             "labels": list(LABELS),
@@ -681,6 +950,9 @@ def main() -> int:
                         scratch_dir=scratch,
                         use_cuda=use_cuda,
                         fp16=args.fp16,
+                        bf16=args.bf16,
+                        dataloader_workers=args.dataloader_workers,
+                        class_weights=args.class_weights,
                     )
                     print(
                         f"acc={result.accuracy:.4f}  macro_f1={result.macro_f1:.4f}  "
@@ -738,6 +1010,9 @@ def main() -> int:
                     use_cuda=use_cuda,
                     best_meta=best,
                     fp16=args.fp16,
+                    bf16=args.bf16,
+                    dataloader_workers=args.dataloader_workers,
+                    class_weights=args.class_weights,
                 )
                 for r in results:
                     if r["model_key"] == model_key and r["epochs"] == best["epochs"]:
@@ -767,6 +1042,7 @@ def main() -> int:
         "folds": folds,
         "batch_size": batch_size,
         "lr": args.lr,
+        "class_weights": args.class_weights,
         "max_length": args.max_length,
         "device": "cuda" if use_cuda else "cpu",
         "labels": list(LABELS),
