@@ -27,12 +27,19 @@ LABEL_COLORS = {
     "ZA-VLAST": "#2563eb",
     "PROTIV-VLASTI": "#dc2626",
 }
-MODEL_ORDER = ("bertic", "mbert")
+MODEL_ORDER = ("bertic", "bertic_cw", "mbert", "mbert_cw")
 MODEL_NAMES = {
     "bertic": "BERTić",
     "mbert": "mBERT",
+    "bertic_cw": "BERTić + class weights",
+    "mbert_cw": "mBERT + class weights",
 }
-MODEL_COLORS = {"bertic": "#0f766e", "mbert": "#7c3aed"}
+MODEL_COLORS = {
+    "bertic": "#0f766e",
+    "mbert": "#7c3aed",
+    "bertic_cw": "#5eead4",
+    "mbert_cw": "#c4b5fd",
+}
 
 
 def setup_style() -> None:
@@ -159,14 +166,17 @@ def plot_fold_macro(bests: list[dict]) -> Path:
     return save_fig("03_fold_macro_f1.png")
 
 
-def plot_confusion(r: dict, index: int) -> Path:
+def plot_confusion(r: dict) -> Path:
+    # Ime fajla nosi model_key (jedinstven po definiciji), a ne redni broj —
+    # sa 2 modela to je bilo 04/05, ali sa vise varijanti (npr. class-weights
+    # poredjenje) redni brojevi bi se sudarili sa 06_ranking/07_epoch_curve.
     key = r["model_key"]
     cm = np.array(r.get("confusion_matrix") or [], dtype=float)
     if cm.size == 0:
         fig, ax = plt.subplots(figsize=(5.5, 4.5))
         ax.text(0.5, 0.5, "Nema confusion_matrix", ha="center", va="center")
         ax.set_axis_off()
-        return save_fig(f"0{3 + index}_cm_{key}.png")
+        return save_fig(f"05_cm_{key}.png")
 
     fig, ax = plt.subplots(figsize=(5.8, 5.0))
     im = ax.imshow(cm, cmap="Blues")
@@ -184,7 +194,7 @@ def plot_confusion(r: dict, index: int) -> Path:
         for j in range(cm.shape[1]):
             ax.text(j, i, int(cm[i, j]), ha="center", va="center", color="black")
     fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-    return save_fig(f"0{3 + index}_cm_{key}.png")
+    return save_fig(f"05_cm_{key}.png")
 
 
 def plot_epoch_curve(bests: list[dict]) -> Path | None:
@@ -300,7 +310,9 @@ def plot_ranking(rows: list[dict]) -> Path:
     return save_fig("06_ranking_macro_f1.png")
 
 
-def epoch_curve_section(bests: list[dict], figs: list[Path]) -> list[str]:
+def epoch_curve_section(
+    bests: list[dict], figs: list[Path], img_prefix: str = "output/encoder_analysis"
+) -> list[str]:
     """Obavezan deo izveštaja: tabela + narativ o uticaju broja epoha.
 
     Zasnovano na EncoderResult.epoch_curve (macro-F1 posle svake epohe,
@@ -317,7 +329,7 @@ def epoch_curve_section(bests: list[dict], figs: list[Path]) -> list[str]:
 
     lines: list[str] = []
     if any(p.name == "07_epoch_curve.png" for p in figs):
-        lines += ["![Uticaj broja epoha](output/encoder_analysis/07_epoch_curve.png)", ""]
+        lines += [f"![Uticaj broja epoha]({img_prefix}/07_epoch_curve.png)", ""]
 
     for r in have_curve:
         key = r["model_key"]
@@ -340,7 +352,7 @@ def epoch_curve_section(bests: list[dict], figs: list[Path]) -> list[str]:
 
         detail_name = f"08_epoch_detail_{key}.png"
         if any(p.name == detail_name for p in figs):
-            lines += [f"![{name} po epohama](output/encoder_analysis/{detail_name})", ""]
+            lines += [f"![{name} po epohama]({img_prefix}/{detail_name})", ""]
 
         if len(curve) == 2:
             delta = curve[1]["macro_f1_mean"] - curve[0]["macro_f1_mean"]
@@ -393,7 +405,12 @@ def md_table(headers: list[str], rows: list[list[str]]) -> list[str]:
     return lines
 
 
-def build_report(payload: dict, figs: list[Path], bests: list[dict]) -> str:
+def build_report(
+    payload: dict,
+    figs: list[Path],
+    bests: list[dict],
+    img_prefix: str = "output/encoder_analysis",
+) -> str:
     rows: list[dict] = payload["results"]
     ranked = sorted(rows, key=lambda r: float(r["macro_f1"]), reverse=True)
     winner = ranked[0]
@@ -465,13 +482,13 @@ def build_report(payload: dict, figs: list[Path], bests: list[dict]) -> str:
 
     fig_names = {p.name: p.name for p in figs}
     lines += [
-        f"![Poređenje metrika](output/encoder_analysis/{fig_names.get('01_compare_metrics.png', '01_compare_metrics.png')})",
+        f"![Poređenje metrika]({img_prefix}/{fig_names.get('01_compare_metrics.png', '01_compare_metrics.png')})",
         "",
-        f"![Rangiranje](output/encoder_analysis/{fig_names.get('06_ranking_macro_f1.png', '06_ranking_macro_f1.png')})",
+        f"![Rangiranje]({img_prefix}/{fig_names.get('06_ranking_macro_f1.png', '06_ranking_macro_f1.png')})",
         "",
         "## 3. F1 po klasi",
         "",
-        f"![F1 po klasi](output/encoder_analysis/{fig_names.get('02_per_class_f1.png', '02_per_class_f1.png')})",
+        f"![F1 po klasi]({img_prefix}/{fig_names.get('02_per_class_f1.png', '02_per_class_f1.png')})",
         "",
         *md_table(
             ["Model", "F1 NEUTRAL", "F1 ZA-VLAST", "F1 PROTIV-VLASTI"],
@@ -488,7 +505,7 @@ def build_report(payload: dict, figs: list[Path], bests: list[dict]) -> str:
         "",
         "## 4. Stabilnost po foldovima",
         "",
-        f"![Foldovi](output/encoder_analysis/{fig_names.get('03_fold_macro_f1.png', '03_fold_macro_f1.png')})",
+        f"![Foldovi]({img_prefix}/{fig_names.get('03_fold_macro_f1.png', '03_fold_macro_f1.png')})",
         "",
         *md_table(
             ["Model", "mean fold macro-F1", "std", "min", "max"],
@@ -507,13 +524,13 @@ def build_report(payload: dict, figs: list[Path], bests: list[dict]) -> str:
         "",
         "## 5. Uticaj broja epoha",
         "",
-        *epoch_curve_section(bests, figs),
+        *epoch_curve_section(bests, figs, img_prefix=img_prefix),
         "## 6. Matrice konfuzije",
         "",
     ]
     for p in figs:
-        if p.name.startswith("04_cm_") or p.name.startswith("05_cm_"):
-            lines += [f"![{p.stem}](output/encoder_analysis/{p.name})", ""]
+        if "_cm_" in p.name:
+            lines += [f"![{p.stem}]({img_prefix}/{p.name})", ""]
 
     lines += [
         "## 7. Zaključak za izveštaj",
@@ -545,7 +562,7 @@ def build_report(payload: dict, figs: list[Path], bests: list[dict]) -> str:
         "",
     ]
     for fig in figs:
-        lines.append(f"- `output/encoder_analysis/{fig.name}`")
+        lines.append(f"- `{img_prefix}/{fig.name}`")
     lines.append("")
     return "\n".join(lines)
 
@@ -583,8 +600,8 @@ def generate(json_path: Path) -> int:
         plot_per_class(bests),
         plot_fold_macro(bests),
     ]
-    for i, r in enumerate(bests, start=1):
-        figs.append(plot_confusion(r, i))
+    for r in bests:
+        figs.append(plot_confusion(r))
     epoch_fig = plot_epoch_curve(bests)
     if epoch_fig is not None:
         figs.append(epoch_fig)
@@ -593,6 +610,69 @@ def generate(json_path: Path) -> int:
 
     REPORT.write_text(build_report(payload, figs, bests), encoding="utf-8")
     ranked = sorted(rows, key=lambda r: float(r["macro_f1"]), reverse=True)
+    print(f"Izvestaj: {REPORT}")
+    print(f"Grafike: {OUT_DIR}")
+    print(
+        f"Pobednik: {ranked[0]['model_key']} macro_f1={ranked[0]['macro_f1']:.4f}",
+        flush=True,
+    )
+    return 0
+
+
+def generate_multi(
+    sources: list[tuple[Path, str]], report_path: Path, out_dir: Path
+) -> int:
+    """Uporedni izveštaj iz VIŠE encoder_results JSON-ova (npr. sa/bez tezina
+    klasa). Svaki izvor dobija sufiks na model_key (npr. "_cw"), pa se sve
+    varijante crtaju kao odvojene serije na istim grafikama gde ima smisla
+    (poređenje metrika, F1 po klasi, ranking, kriva epoha), a odvojeno tamo
+    gde bi spajanje bilo nečitljivo (matrice konfuzije, detalji po epohi).
+    """
+    global OUT_DIR, REPORT
+    OUT_DIR = out_dir
+    REPORT = report_path
+
+    base_payload: dict | None = None
+    all_rows: list[dict] = []
+    json_paths: list[str] = []
+    for json_path, key_suffix in sources:
+        payload = json.loads(json_path.read_text(encoding="utf-8"))
+        json_paths.append(str(json_path))
+        if base_payload is None:
+            base_payload = payload
+        for row in payload.get("results") or []:
+            row = dict(row)
+            row["model_key"] = f"{row['model_key']}{key_suffix}"
+            all_rows.append(row)
+
+    if not all_rows:
+        print("Nijedan izvor nema 'results'.", flush=True)
+        return 1
+
+    combined_payload = {**(base_payload or {}), "results": all_rows}
+    combined_payload["_json_path"] = "; ".join(json_paths)
+
+    setup_style()
+    bests = best_per_model(all_rows)
+    figs: list[Path] = [
+        plot_compare_metrics(bests),
+        plot_per_class(bests),
+        plot_fold_macro(bests),
+    ]
+    for r in bests:
+        figs.append(plot_confusion(r))
+    epoch_fig = plot_epoch_curve(bests)
+    if epoch_fig is not None:
+        figs.append(epoch_fig)
+    figs.extend(plot_epoch_curve_detail(bests))
+    figs.append(plot_ranking(all_rows))
+
+    img_prefix = f"output/{out_dir.name}"
+    REPORT.write_text(
+        build_report(combined_payload, figs, bests, img_prefix=img_prefix),
+        encoding="utf-8",
+    )
+    ranked = sorted(all_rows, key=lambda r: float(r["macro_f1"]), reverse=True)
     print(f"Izvestaj: {REPORT}")
     print(f"Grafike: {OUT_DIR}")
     print(
