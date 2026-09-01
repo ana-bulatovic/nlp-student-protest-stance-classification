@@ -82,6 +82,65 @@ class EncoderResult:
     epoch_curve: list[dict] = field(default_factory=list)
 
 
+def compute_class_weights(train_labels: list[str], scheme: str) -> list[float] | None:
+    """Težine klasa za CrossEntropyLoss, po redosledu LABELS.
+
+    "balanced" koristi sklearn formulu: n / (k * count_c) — retke klase dobijaju
+    veću težinu. NEUTRAL je najmanja klasa (~23% skupa) i ima najslabiji F1, pa
+    je ovo glavni razlog postojanja opcije.
+
+    Težine se UVEK računaju samo iz trening splita (u CV: bez held-out folda),
+    inače bi raspodela test dela curila u trening.
+    """
+    if scheme == "none":
+        return None
+    counts = Counter(train_labels)
+    n = len(train_labels)
+    k = len(LABELS)
+    weights: list[float] = []
+    for lab in LABELS:
+        c = counts.get(lab, 0)
+        # Klasa koja ne postoji u ovom splitu ne sme da da deljenje nulom;
+        # težina 0 je ispravna jer nema ni jednog primera da doprinese gubitku.
+        weights.append(float(n / (k * c)) if c else 0.0)
+    return weights
+
+
+def make_weighted_trainer_cls():
+    """Trainer sa težinama klasa u CrossEntropyLoss.
+
+    Definiše se lenjo (posle importa transformers) jer se Trainer uvozi tek u
+    funkcijama — modul se učitava i na mašinama bez transformers-a.
+    """
+    from transformers import Trainer
+
+    class _WeightedLossTrainer(Trainer):
+        def __init__(self, *args, class_weights: list[float] | None = None, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._class_weights = class_weights
+
+        def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+            # **kwargs: transformers >=4.46 dodaje num_items_in_batch.
+            if self._class_weights is None:
+                return super().compute_loss(
+                    model, inputs, return_outputs=return_outputs, **kwargs
+                )
+            labels = inputs.pop("labels")
+            outputs = model(**inputs)
+            logits = outputs.logits
+            weight = torch.tensor(
+                self._class_weights, dtype=logits.dtype, device=logits.device
+            )
+            loss = torch.nn.functional.cross_entropy(
+                logits.view(-1, len(LABELS)), labels.view(-1), weight=weight
+            )
+            # Trainer dalje očekuje 'labels' u inputs pri return_outputs=True.
+            inputs["labels"] = labels
+            return (loss, outputs) if return_outputs else loss
+
+    return _WeightedLossTrainer
+
+
 class StanceDataset(Dataset):
     def __init__(self, encodings: dict, label_ids: list[int]):
         self.encodings = encodings
@@ -110,6 +169,8 @@ def parse_args() -> argparse.Namespace:
             "  python encoder/train_encoder.py --model bertic --epochs 5\n"
             "  python encoder/train_encoder.py --model mbert --epochs 5 --final-only\n"
             "  python encoder/train_encoder.py --compare --quick\n"
+            "  python encoder/train_encoder.py --compare --bf16 --class-weights balanced\n"
+            "      # tezine klasa u gubitku (pomaze najmanjoj klasi, NEUTRAL)\n"
         ),
     )
     parser.add_argument("--data", type=Path, default=DEFAULT_DATA)
@@ -164,6 +225,16 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=32,
         help="Default 32 (RTX 3090, 24GB VRAM); smanji za manje GPU-ove ili CPU.",
+    )
+    parser.add_argument(
+        "--class-weights",
+        type=str,
+        default="none",
+        choices=["none", "balanced"],
+        help=(
+            "Težine klasa u gubitku. 'balanced' = n/(k*count) po klasi — "
+            "pomaže najslabijoj/najmanjoj klasi (NEUTRAL). Default: none."
+        ),
     )
     parser.add_argument("--lr", type=float, default=2e-5)
     parser.add_argument("--max-length", type=int, default=128)
@@ -372,9 +443,8 @@ def train_one_fold(
     fp16: bool = False,
     bf16: bool = False,
     dataloader_workers: int | None = None,
+    class_weights: str = "none",
 ) -> tuple[list[str], list[dict]]:
-    from transformers import Trainer
-
     if work_dir.exists():
         shutil.rmtree(work_dir, ignore_errors=True)
     work_dir.mkdir(parents=True, exist_ok=True)
@@ -393,7 +463,16 @@ def train_one_fold(
         encode_labels(test_labels),
     )
     print(f"    treniram {len(train_ds)} primera, {epochs} epoha ...", flush=True)
-    trainer = Trainer(
+    # Težine SAMO iz trening dela ovog folda — held-out fold ne sme da utiče.
+    weights = compute_class_weights(train_labels, class_weights)
+    if weights is not None:
+        print(
+            "    tezine klasa: "
+            + ", ".join(f"{lab}={w:.3f}" for lab, w in zip(LABELS, weights)),
+            flush=True,
+        )
+    trainer_cls = make_weighted_trainer_cls()
+    trainer = trainer_cls(
         model=model,
         args=make_training_args(
             work_dir, epochs, batch_size, lr, seed, use_cuda, fp16,
@@ -402,6 +481,7 @@ def train_one_fold(
         train_dataset=train_ds,
         eval_dataset=eval_ds,
         compute_metrics=build_compute_metrics(),
+        class_weights=weights,
     )
     trainer.train()
     epoch_curve = extract_epoch_curve(trainer)
@@ -447,6 +527,7 @@ def evaluate_encoder_config(
     fp16: bool = False,
     bf16: bool = False,
     dataloader_workers: int | None = None,
+    class_weights: str = "none",
 ) -> tuple[EncoderResult, str]:
     y = np.array(labels)
     skf = StratifiedKFold(n_splits=folds, shuffle=True, random_state=seed)
@@ -484,6 +565,7 @@ def evaluate_encoder_config(
             fp16=fp16,
             bf16=bf16,
             dataloader_workers=dataloader_workers,
+            class_weights=class_weights,
         )
         fold_curves.append(epoch_curve)
         fold_macro = float(
@@ -576,9 +658,8 @@ def train_full_and_save(
     fp16: bool = False,
     bf16: bool = False,
     dataloader_workers: int | None = None,
+    class_weights: str = "none",
 ) -> None:
-    from transformers import Trainer
-
     if out_dir.exists():
         shutil.rmtree(out_dir, ignore_errors=True)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -588,13 +669,16 @@ def train_full_and_save(
         tokenize_texts(tokenizer, texts, max_length),
         encode_labels(labels),
     )
-    trainer = Trainer(
+    weights = compute_class_weights(labels, class_weights)
+    trainer_cls = make_weighted_trainer_cls()
+    trainer = trainer_cls(
         model=model,
         args=make_training_args(
             out_dir / "_train", epochs, batch_size, lr, seed, use_cuda, fp16,
             bf16=bf16, dataloader_workers=dataloader_workers,
         ),
         train_dataset=train_ds,
+        class_weights=weights,
     )
     trainer.train()
     make_weights_contiguous(model)
@@ -611,6 +695,8 @@ def train_full_and_save(
         "epochs": epochs,
         "labels": list(LABELS),
         "max_length": max_length,
+        "class_weights": class_weights,
+        "class_weight_values": weights,
         "best_config": best_meta,
         "cv_macro_f1": best_meta.get("macro_f1"),
     }
@@ -767,6 +853,7 @@ def main() -> int:
             fp16=args.fp16,
             bf16=args.bf16,
             dataloader_workers=args.dataloader_workers,
+            class_weights=args.class_weights,
         )
         print(f"Model za inferencu: {out_dir}")
         print(
@@ -822,6 +909,7 @@ def main() -> int:
             "folds": folds,
             "batch_size": batch_size,
             "lr": args.lr,
+            "class_weights": args.class_weights,
             "max_length": args.max_length,
             "device": "cuda" if use_cuda else "cpu",
             "labels": list(LABELS),
@@ -864,6 +952,7 @@ def main() -> int:
                         fp16=args.fp16,
                         bf16=args.bf16,
                         dataloader_workers=args.dataloader_workers,
+                        class_weights=args.class_weights,
                     )
                     print(
                         f"acc={result.accuracy:.4f}  macro_f1={result.macro_f1:.4f}  "
@@ -923,6 +1012,7 @@ def main() -> int:
                     fp16=args.fp16,
                     bf16=args.bf16,
                     dataloader_workers=args.dataloader_workers,
+                    class_weights=args.class_weights,
                 )
                 for r in results:
                     if r["model_key"] == model_key and r["epochs"] == best["epochs"]:
@@ -952,6 +1042,7 @@ def main() -> int:
         "folds": folds,
         "batch_size": batch_size,
         "lr": args.lr,
+        "class_weights": args.class_weights,
         "max_length": args.max_length,
         "device": "cuda" if use_cuda else "cpu",
         "labels": list(LABELS),
