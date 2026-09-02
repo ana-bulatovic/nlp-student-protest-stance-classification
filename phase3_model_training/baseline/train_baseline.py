@@ -62,16 +62,28 @@ class FoldResult:
     weighted_f1: float
     per_class_f1: dict[str, float]
     confusion_matrix: list[list[int]]
+    # Podrazumevano (1, 2)/2/0.95 — isto kao pre; eksplicitni parametri
+    # postoje da bi ablation_ngram_freq.py mogao da ih menja i da rezultat
+    # zna koje su vrednosti zapravo korišćene za taj red.
+    ngram_range: tuple[int, int] = (1, 2)
+    min_df: int = 2
+    max_df: float = 0.95
 
 
-def make_vectorizer(weighting: str, lowercase: bool):
+def make_vectorizer(
+    weighting: str,
+    lowercase: bool,
+    ngram_range: tuple[int, int] = (1, 2),
+    min_df: int = 2,
+    max_df: float = 0.95,
+):
     """Jedna od tehnika reprezentacije: TF, IDF ili TF-IDF (ravnopravne opcije)."""
     common = dict(
         lowercase=lowercase,
         analyzer="word",
-        ngram_range=(1, 2),
-        min_df=2,
-        max_df=0.95,
+        ngram_range=ngram_range,
+        min_df=min_df,
+        max_df=max_df,
     )
     if weighting == "tf":
         return CountVectorizer(**common)
@@ -117,12 +129,15 @@ def evaluate_config(
     C_grid: list[float],
     alpha_grid: list[float],
     seed: int,
+    ngram_range: tuple[int, int] = (1, 2),
+    min_df: int = 2,
+    max_df: float = 0.95,
 ) -> tuple[FoldResult, str, Pipeline]:
     y = np.array(labels)
     pipe = Pipeline(
         [
             ("norm", TextNormalizer(mode=normalize)),
-            ("vec", make_vectorizer(weighting, lowercase)),
+            ("vec", make_vectorizer(weighting, lowercase, ngram_range, min_df, max_df)),
             ("clf", make_classifier(model)),
         ]
     )
@@ -168,6 +183,9 @@ def evaluate_config(
         weighted_f1=weighted,
         per_class_f1=per_class,
         confusion_matrix=cm,
+        ngram_range=ngram_range,
+        min_df=min_df,
+        max_df=max_df,
     )
     return result, report, fitted_pipe
 
